@@ -15,18 +15,29 @@ Docker-specific configuration (image, registry, Dockerfile, build args, etc.) is
 
 ## Install
 
-Requires Elixir 1.15+ and Erlang/OTP 26+.
+Requires Erlang/OTP 26+ on the machine running xamal (the escript needs the BEAM runtime).
+
+### One-liner
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dmkenney/xamal/master/install.sh | bash
+```
+
+This downloads the latest pre-built escript to `~/.local/bin/xamal`. Set `XAMAL_INSTALL_DIR` to change the install location, or pass a version argument:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dmkenney/xamal/master/install.sh | bash -s v0.2.0
+```
+
+### Build from source
+
+Requires Elixir 1.15+ in addition to Erlang/OTP 26+.
 
 ```sh
 git clone https://github.com/dmkenney/xamal.git
 cd xamal
 mix deps.get
 mix escript.build
-```
-
-This produces a `xamal` binary in the project root. Copy it somewhere on your `$PATH`:
-
-```sh
 mkdir -p ~/.local/bin
 cp xamal ~/.local/bin/
 ```

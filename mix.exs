@@ -7,7 +7,7 @@ defmodule Xamal.MixProject do
     [
       app: :xamal,
       version: @version,
-      elixir: "~> 1.17",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       escript: [main_module: Xamal.CLI],
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -27,7 +27,7 @@ defmodule Xamal.MixProject do
 
   defp deps do
     [
-      {:yaml_elixir, "~> 2.11"}
+      {:yaml_elixir, "~> 2.11.0"}
     ]
   end
 end
