@@ -148,6 +148,7 @@ Shell scripts in `.xamal/hooks/` that run locally at lifecycle points:
 | Hook | When |
 |---|---|
 | `pre-build` | Before building the release |
+| `post-build` | After building the release |
 | `pre-deploy` | Before deploying |
 | `post-deploy` | After deploying |
 | `pre-app-boot` | Before booting the app |

@@ -18,9 +18,9 @@ defmodule Xamal.CLIIntegration.InitTest do
     assert File.exists?(Path.join(dir, "config/deploy.yml"))
     assert File.exists?(Path.join(dir, ".xamal/secrets"))
 
-    # All 7 hooks should be created and executable
+    # All 8 hooks should be created and executable
     for hook <-
-          ~w(pre-build pre-deploy post-deploy pre-app-boot post-app-boot pre-caddy-reload post-caddy-reload) do
+          ~w(pre-build post-build pre-deploy post-deploy pre-app-boot post-app-boot pre-caddy-reload post-caddy-reload) do
       path = Path.join(dir, ".xamal/hooks/#{hook}")
       assert File.exists?(path), "Expected hook #{hook} to exist"
       %{mode: mode} = File.stat!(path)

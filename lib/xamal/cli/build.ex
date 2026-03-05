@@ -16,8 +16,10 @@ defmodule Xamal.CLI.Build do
   end
 
   def deliver(_args, opts) do
-    run_hook("pre-build", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+    skip_hooks = Keyword.get(opts, :skip_hooks, false)
+    run_hook("pre-build", skip_hooks: skip_hooks)
     push([], opts)
+    run_hook("post-build", skip_hooks: skip_hooks)
     pull([], opts)
   end
 

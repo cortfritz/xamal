@@ -252,6 +252,7 @@ defmodule Xamal.CLI.Docs do
     ## Supported hooks
 
       pre-build             Before building the release
+      post-build            After building the release
       pre-deploy            Before deploying
       post-deploy           After deploying
       pre-app-boot          Before booting the app across roles

@@ -356,6 +356,11 @@ defmodule Xamal.CLI.Main do
        #!/bin/sh
        echo "Running pre-build hook..."
        """},
+      {"post-build",
+       """
+       #!/bin/sh
+       echo "Running post-build hook..."
+       """},
       {"pre-deploy",
        """
        #!/bin/sh
