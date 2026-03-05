@@ -13,6 +13,11 @@ defmodule Xamal.CLIIntegration.HelpTest do
     assert output =~ "Xamal #{Xamal.version()}"
   end
 
+  test "--version flag outputs version string", %{dir: dir} do
+    {output, 0} = xamal(["--version"], dir)
+    assert output =~ "Xamal #{Xamal.version()}"
+  end
+
   test "no args shows usage", %{dir: dir} do
     {output, 0} = xamal([], dir)
     assert output =~ "Usage: xamal <command>"

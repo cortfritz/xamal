@@ -37,6 +37,11 @@ defmodule Xamal.CLI do
     Application.ensure_all_started(:xamal)
     Logger.configure(level: :info)
 
+    if argv == ["--version"] do
+      print_version()
+      System.halt(0)
+    end
+
     {head_opts, args, invalid} =
       OptionParser.parse_head(argv, strict: @global_switches, aliases: @global_aliases)
 
