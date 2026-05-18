@@ -1,6 +1,6 @@
 defmodule Xamal.SecretCommands do
   @moduledoc """
-  CLI commands for managing secrets.
+  Secret management task implementations.
   """
 
   import Xamal.Shell
@@ -14,48 +14,31 @@ defmodule Xamal.SecretCommands do
     end
   end
 
-  def fetch(args, _opts) do
-    case args do
-      [adapter | rest] ->
+  @adapters %{
+    "doppler" => &__MODULE__.fetch_doppler/1,
+    "1password" => &__MODULE__.fetch_1password/1,
+    "aws_secrets_manager" => &__MODULE__.fetch_aws_sm/1,
+    "bitwarden" => &__MODULE__.fetch_bitwarden/1,
+    "bitwarden_secrets_manager" => &__MODULE__.fetch_bitwarden_sm/1,
+    "gcp_secret_manager" => &__MODULE__.fetch_gcp_sm/1,
+    "last_pass" => &__MODULE__.fetch_lastpass/1,
+    "passbolt" => &__MODULE__.fetch_passbolt/1
+  }
+
+  def fetch([adapter | rest], _opts) do
+    case Map.fetch(@adapters, adapter) do
+      {:ok, fetcher} ->
         say("Fetching secrets via #{adapter}...", :magenta)
-        # Adapter-specific secret fetching
-        # For now, just document the interface
-        case adapter do
-          "doppler" ->
-            fetch_doppler(rest)
+        fetcher.(rest)
 
-          "1password" ->
-            fetch_1password(rest)
-
-          "aws_secrets_manager" ->
-            fetch_aws_sm(rest)
-
-          "bitwarden" ->
-            fetch_bitwarden(rest)
-
-          "bitwarden_secrets_manager" ->
-            fetch_bitwarden_sm(rest)
-
-          "gcp_secret_manager" ->
-            fetch_gcp_sm(rest)
-
-          "last_pass" ->
-            fetch_lastpass(rest)
-
-          "passbolt" ->
-            fetch_passbolt(rest)
-
-          _ ->
-            say("Unknown adapter: #{adapter}", :red)
-
-            say(
-              "Supported: doppler, 1password, aws_secrets_manager, bitwarden, bitwarden_secrets_manager, gcp_secret_manager, last_pass, passbolt"
-            )
-        end
-
-      [] ->
-        say("Usage: mix xamal.secrets.fetch <adapter> [options]", :red)
+      :error ->
+        say("Unknown adapter: #{adapter}", :red)
+        say("Supported: #{supported_adapters()}")
     end
+  end
+
+  def fetch([], _opts) do
+    say("Usage: mix xamal.secrets.fetch <adapter> [options]", :red)
   end
 
   def extract(args, _opts) do
@@ -101,34 +84,27 @@ defmodule Xamal.SecretCommands do
     """)
   end
 
-  defp fetch_doppler(args) do
+  def fetch_doppler(args) do
     project = Enum.at(args, 0, "")
     config_name = Enum.at(args, 1, "")
-
     cmd = "doppler secrets download --no-file --format env -p #{project} -c #{config_name}"
 
-    case System.cmd("sh", ["-c", cmd], stderr_to_stdout: true) do
-      {output, 0} -> IO.puts(output)
-      {error, _} -> say("Doppler fetch failed: #{error}", :red)
-    end
+    shell_cmd(cmd, &IO.puts/1, "Doppler fetch failed")
   end
 
-  defp fetch_1password(args) do
-    case args do
-      [vault, item, field | _] ->
-        cmd = "op read op://#{vault}/#{item}/#{field}"
-
-        case System.cmd("sh", ["-c", cmd], stderr_to_stdout: true) do
-          {output, 0} -> IO.write(String.trim(output))
-          {error, _} -> say("1Password fetch failed: #{error}", :red)
-        end
-
-      _ ->
-        say("Usage: mix xamal.secrets.fetch 1password <vault> <item> <field>", :red)
-    end
+  def fetch_1password([vault, item, field | _]) do
+    shell_cmd(
+      "op read op://#{vault}/#{item}/#{field}",
+      &trimmed_write/1,
+      "1Password fetch failed"
+    )
   end
 
-  defp fetch_aws_sm(args) do
+  def fetch_1password(_args) do
+    say("Usage: mix xamal.secrets.fetch 1password <vault> <item> <field>", :red)
+  end
+
+  def fetch_aws_sm(args) do
     {opts, secrets, _} = OptionParser.parse(args, switches: [from: :string, profile: :string])
     prefix = Keyword.get(opts, :from, "")
     profile = Keyword.get(opts, :profile)
@@ -141,59 +117,25 @@ defmodule Xamal.SecretCommands do
         :red
       )
     else
-      id_args = Enum.flat_map(secret_ids, fn id -> ["--secret-id-list", id] end)
-      profile_args = if profile, do: ["--profile", profile], else: []
-
-      case System.cmd(
-             "aws",
-             ["secretsmanager", "batch-get-secret-value"] ++ id_args ++ profile_args,
-             stderr_to_stdout: true
-           ) do
-        {output, 0} -> IO.puts(output)
-        {error, _} -> say("AWS Secrets Manager fetch failed: #{error}", :red)
-      end
+      aws_secrets(secret_ids, profile)
     end
   end
 
-  defp fetch_bitwarden(args) do
+  def fetch_bitwarden(args) do
     {opts, secrets, _} = OptionParser.parse(args, switches: [account: :string])
-    account = Keyword.get(opts, :account)
 
-    if account == nil do
-      say("Usage: mix xamal.secrets.fetch bitwarden --account EMAIL ITEM [ITEM/FIELD]...", :red)
-    else
-      # Login and get session
-      case System.cmd("bw", ["login", "--check"], stderr_to_stdout: true) do
-        {_, 0} ->
-          :ok
+    case Keyword.get(opts, :account) do
+      nil ->
+        say("Usage: mix xamal.secrets.fetch bitwarden --account EMAIL ITEM [ITEM/FIELD]...", :red)
 
-        _ ->
-          case System.cmd("bw", ["login", account, "--raw"], stderr_to_stdout: true) do
-            {_, 0} -> :ok
-            {error, _} -> say("Bitwarden login failed: #{error}", :red)
-          end
-      end
-
-      case System.cmd("bw", ["unlock", "--raw"], stderr_to_stdout: true) do
-        {session, 0} ->
-          System.cmd("bw", ["sync", "--session", String.trim(session)], stderr_to_stdout: true)
-
-          Enum.each(secrets, fn secret ->
-            cmd = "bw get item '#{secret}' --session '#{String.trim(session)}'"
-
-            case System.cmd("sh", ["-c", cmd], stderr_to_stdout: true) do
-              {output, 0} -> IO.puts(output)
-              {error, _} -> say("Failed to fetch '#{secret}': #{error}", :red)
-            end
-          end)
-
-        {error, _} ->
-          say("Bitwarden unlock failed: #{error}", :red)
-      end
+      account ->
+        with :ok <- bitwarden_login(account), {:ok, session} <- bitwarden_unlock() do
+          fetch_bitwarden_secrets(secrets, session)
+        end
     end
   end
 
-  defp fetch_bitwarden_sm(args) do
+  def fetch_bitwarden_sm(args) do
     {opts, secrets, _} = OptionParser.parse(args, switches: [from: :string])
     project = Keyword.get(opts, :from)
 
@@ -203,19 +145,12 @@ defmodule Xamal.SecretCommands do
         :red
       )
     else
-      Enum.each(secrets, fn secret ->
-        case System.cmd("bws", ["secret", "get", secret], stderr_to_stdout: true) do
-          {output, 0} -> IO.puts(output)
-          {error, _} -> say("Failed to fetch '#{secret}': #{error}", :red)
-        end
-      end)
+      Enum.each(secrets, &bitwarden_sm_secret/1)
     end
   end
 
-  defp fetch_gcp_sm(args) do
+  def fetch_gcp_sm(args) do
     {opts, secrets, _} = OptionParser.parse(args, switches: [account: :string, from: :string])
-    account = Keyword.get(opts, :account)
-    project = Keyword.get(opts, :from)
 
     if secrets == [] do
       say(
@@ -223,76 +158,151 @@ defmodule Xamal.SecretCommands do
         :red
       )
     else
-      impersonate = if account, do: ["--impersonate-service-account", account], else: []
-
-      Enum.each(secrets, fn secret ->
-        # Support project/secret/version format
-        {proj, name, version} =
-          case String.split(secret, "/") do
-            [p, n, v] -> {p, n, v}
-            [p, n] -> {p, n, "latest"}
-            [n] -> {project, n, "latest"}
-          end
-
-        project_arg = if proj, do: ["--project", proj], else: []
-
-        cmd_args =
-          ["secrets", "versions", "access", version, "--secret", name] ++
-            project_arg ++ impersonate
-
-        case System.cmd("gcloud", cmd_args, stderr_to_stdout: true) do
-          {output, 0} -> IO.puts(String.trim(output))
-          {error, _} -> say("Failed to fetch '#{secret}': #{error}", :red)
-        end
-      end)
+      Enum.each(secrets, &fetch_gcp_secret(&1, opts))
     end
   end
 
-  defp fetch_lastpass(args) do
+  def fetch_lastpass(args) do
     {opts, secrets, _} = OptionParser.parse(args, switches: [account: :string])
-    account = Keyword.get(opts, :account)
 
-    if account == nil do
-      say("Usage: mix xamal.secrets.fetch last_pass --account EMAIL SECRET...", :red)
-    else
-      # Verify logged in
-      case System.cmd("lpass", ["status", "--quiet"], stderr_to_stdout: true) do
-        {_, 0} ->
-          :ok
+    case Keyword.get(opts, :account) do
+      nil ->
+        say("Usage: mix xamal.secrets.fetch last_pass --account EMAIL SECRET...", :red)
 
-        _ ->
-          case System.cmd("lpass", ["login", account], stderr_to_stdout: true) do
-            {_, 0} -> :ok
-            {error, _} -> say("LastPass login failed: #{error}", :red)
-          end
-      end
-
-      Enum.each(secrets, fn secret ->
-        case System.cmd("lpass", ["show", "--json", secret], stderr_to_stdout: true) do
-          {output, 0} -> IO.puts(output)
-          {error, _} -> say("Failed to fetch '#{secret}': #{error}", :red)
+      account ->
+        with :ok <- lastpass_login(account) do
+          Enum.each(secrets, &lastpass_secret/1)
         end
-      end)
     end
   end
 
-  defp fetch_passbolt(args) do
+  def fetch_passbolt(args) do
     {opts, secrets, _} = OptionParser.parse(args, switches: [from: :string])
     folder = Keyword.get(opts, :from)
 
     if secrets == [] do
       say("Usage: mix xamal.secrets.fetch passbolt [--from FOLDER] SECRET...", :red)
     else
-      filter_args = if folder, do: ["--filter", "folder=#{folder}"], else: []
-
-      Enum.each(secrets, fn secret ->
-        cmd_args = ["get", "resource", "--filter", "name=#{secret}"] ++ filter_args
-
-        case System.cmd("passbolt", cmd_args, stderr_to_stdout: true) do
-          {output, 0} -> IO.puts(output)
-          {error, _} -> say("Failed to fetch '#{secret}': #{error}", :red)
-        end
-      end)
+      Enum.each(secrets, &passbolt_secret(&1, folder))
     end
+  end
+
+  defp supported_adapters do
+    @adapters |> Map.keys() |> Enum.sort() |> Enum.join(", ")
+  end
+
+  defp shell_cmd(command, success, error_prefix) do
+    case System.cmd("sh", ["-c", command], stderr_to_stdout: true) do
+      {output, 0} -> success.(output)
+      {error, _} -> say("#{error_prefix}: #{error}", :red)
+    end
+  end
+
+  defp command(program, args, success, error_prefix) do
+    case System.cmd(program, args, stderr_to_stdout: true) do
+      {output, 0} -> success.(output)
+      {error, _} -> say("#{error_prefix}: #{error}", :red)
+    end
+  end
+
+  defp trimmed_write(output), do: IO.write(String.trim(output))
+
+  defp aws_secrets(secret_ids, profile) do
+    id_args = Enum.flat_map(secret_ids, fn id -> ["--secret-id-list", id] end)
+    profile_args = if profile, do: ["--profile", profile], else: []
+
+    command(
+      "aws",
+      ["secretsmanager", "batch-get-secret-value"] ++ id_args ++ profile_args,
+      &IO.puts/1,
+      "AWS Secrets Manager fetch failed"
+    )
+  end
+
+  defp bitwarden_login(account) do
+    case System.cmd("bw", ["login", "--check"], stderr_to_stdout: true) do
+      {_, 0} -> bitwarden_login_result(:ok)
+      _ -> command_status("bw", ["login", account, "--raw"], "Bitwarden login failed")
+    end
+  end
+
+  defp bitwarden_login_result(result), do: result
+
+  defp bitwarden_unlock do
+    case System.cmd("bw", ["unlock", "--raw"], stderr_to_stdout: true) do
+      {session, 0} -> {:ok, String.trim(session)}
+      {error, _} -> say_error("Bitwarden unlock failed", error)
+    end
+  end
+
+  defp fetch_bitwarden_secrets(secrets, session) do
+    System.cmd("bw", ["sync", "--session", session], stderr_to_stdout: true)
+
+    Enum.each(secrets, fn secret ->
+      shell_cmd(
+        "bw get item '#{secret}' --session '#{session}'",
+        &IO.puts/1,
+        "Failed to fetch '#{secret}'"
+      )
+    end)
+  end
+
+  defp bitwarden_sm_secret(secret) do
+    command("bws", ["secret", "get", secret], &IO.puts/1, "Failed to fetch '#{secret}'")
+  end
+
+  defp fetch_gcp_secret(secret, opts) do
+    {project, name, version} = gcp_secret_parts(secret, Keyword.get(opts, :from))
+    project_arg = if project, do: ["--project", project], else: []
+
+    impersonate =
+      if account = Keyword.get(opts, :account),
+        do: ["--impersonate-service-account", account],
+        else: []
+
+    command(
+      "gcloud",
+      ["secrets", "versions", "access", version, "--secret", name] ++ project_arg ++ impersonate,
+      fn output -> IO.puts(String.trim(output)) end,
+      "Failed to fetch '#{secret}'"
+    )
+  end
+
+  defp gcp_secret_parts(secret, default_project) do
+    case String.split(secret, "/") do
+      [project, name, version] -> {project, name, version}
+      [project, name] -> {project, name, "latest"}
+      [name] -> {default_project, name, "latest"}
+    end
+  end
+
+  defp lastpass_login(account) do
+    case System.cmd("lpass", ["status", "--quiet"], stderr_to_stdout: true) do
+      {_, 0} -> :ok
+      _ -> command_status("lpass", ["login", account], "LastPass login failed")
+    end
+  end
+
+  defp lastpass_secret(secret) do
+    command("lpass", ["show", "--json", secret], &IO.puts/1, "Failed to fetch '#{secret}'")
+  end
+
+  defp passbolt_secret(secret, folder) do
+    filter_args = if folder, do: ["--filter", "folder=#{folder}"], else: []
+    cmd_args = ["get", "resource", "--filter", "name=#{secret}"] ++ filter_args
+
+    command("passbolt", cmd_args, &IO.puts/1, "Failed to fetch '#{secret}'")
+  end
+
+  defp command_status(program, args, error_prefix) do
+    case System.cmd(program, args, stderr_to_stdout: true) do
+      {_, 0} -> :ok
+      {error, _} -> say_error(error_prefix, error)
+    end
+  end
+
+  defp say_error(prefix, error) do
+    say("#{prefix}: #{error}", :red)
+    :error
   end
 end
