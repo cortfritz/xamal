@@ -6,11 +6,12 @@ defmodule Xamal.BuildTasks do
   import Xamal.Hooks
   import Xamal.Output
 
-  alias Xamal.{Commander, Configuration, Context, SSH}
-  alias Xamal.Commands.{Base, Builder}
+  alias Xamal.Commands.Base
+  alias Xamal.Commands.Builder
+  alias Xamal.Configuration
   alias Xamal.Configuration.Builder, as: BuildConfig
-
-  def deliver(args, opts), do: deliver(args, opts, Commander.context())
+  alias Xamal.Context
+  alias Xamal.SSH
 
   def deliver(_args, opts, context) do
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
@@ -19,8 +20,6 @@ defmodule Xamal.BuildTasks do
     run_hook("post-build", [skip_hooks: skip_hooks], context)
     pull([], opts, context)
   end
-
-  def push(args, opts), do: push(args, opts, Commander.context())
 
   def push(_args, _opts, context) do
     config = context.config
@@ -108,8 +107,6 @@ defmodule Xamal.BuildTasks do
               __STACKTRACE__
   end
 
-  def pull(args, opts), do: pull(args, opts, Commander.context())
-
   def pull(_args, _opts, context) do
     config = context.config
     hosts = Context.hosts(context)
@@ -145,8 +142,6 @@ defmodule Xamal.BuildTasks do
       end
     end)
   end
-
-  def details(args, opts), do: details(args, opts, Commander.context())
 
   def details(_args, _opts, context) do
     config = context.config

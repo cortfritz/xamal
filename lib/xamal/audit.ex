@@ -5,11 +5,9 @@ defmodule Xamal.Audit do
 
   import Xamal.Output
 
-  alias Xamal.{Commander, Context}
   alias Xamal.Commands.Auditor
+  alias Xamal.Context
   alias Xamal.SSH
-
-  def print(args, opts), do: print(args, opts, Commander.context())
 
   def print(_args, _opts, context) do
     config = context.config

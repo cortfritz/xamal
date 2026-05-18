@@ -1,17 +1,19 @@
 defmodule Xamal.MixTask do
   @moduledoc false
 
-  alias Xamal.{Commander, CommandOptions, Configuration}
+  alias Xamal.{CommandOptions, Configuration}
 
   defmacro __using__(opts) do
     callback = Keyword.fetch!(opts, :run)
 
-    quote do
+    quote bind_quoted: [callback: callback] do
       use Mix.Task
+
+      @xamal_callback callback
 
       @impl true
       def run(args) do
-        Xamal.MixTask.run(args, unquote(callback))
+        Xamal.MixTask.run(args, @xamal_callback)
       end
     end
   end
@@ -41,6 +43,14 @@ defmodule Xamal.MixTask do
     H: :skip_hooks,
     y: :confirmed
   ]
+
+  @type callback ::
+          {module(), atom()} | (list(String.t()), keyword(), Xamal.Context.t() -> term())
+
+  @spec run(list(String.t()), callback()) :: term()
+  def run(args, {module, function}) when is_atom(module) and is_atom(function) do
+    run(args, fn args, opts, context -> invoke(module, function, args, opts, context) end)
+  end
 
   def run(args, callback) when is_function(callback) do
     Application.ensure_all_started(:xamal)
@@ -78,7 +88,6 @@ defmodule Xamal.MixTask do
 
   defp build_context(config, opts) do
     context = CommandOptions.build_context(config, opts)
-    Commander.configure_context(context)
     CommandOptions.configure_logger(opts)
     context
   end
@@ -87,6 +96,21 @@ defmodule Xamal.MixTask do
     case :erlang.fun_info(callback, :arity) do
       {:arity, 3} -> callback.(args, opts, context)
       {:arity, 2} -> callback.(args, opts)
+    end
+  end
+
+  defp invoke(module, function, args, opts, context) do
+    Code.ensure_loaded!(module)
+
+    cond do
+      function_exported?(module, function, 3) ->
+        apply(module, function, [args, opts, context])
+
+      function_exported?(module, function, 2) ->
+        apply(module, function, [opts, context])
+
+      true ->
+        raise UndefinedFunctionError, module: module, function: function, arity: 3
     end
   end
 end

@@ -3,9 +3,8 @@ defmodule Xamal.Logs do
 
   import Xamal.Output
 
-  alias Xamal.Commander
   alias Xamal.Commands.Base
-  alias Xamal.SSH
+  alias Xamal.{Context, SSH}
 
   def parse_log_opts(args) do
     {log_opts, _, _} =
@@ -17,8 +16,8 @@ defmodule Xamal.Logs do
     log_opts
   end
 
-  def dispatch_logs(log_opts, build_cmd, config, opts \\ []) do
-    hosts = Commander.hosts()
+  def dispatch_logs(log_opts, build_cmd, config, opts \\ [], context) do
+    hosts = Context.hosts(context)
 
     if Keyword.get(log_opts, :follow, false) do
       stream_logs(hd(hosts), build_cmd.(log_opts), config)

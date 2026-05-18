@@ -9,25 +9,24 @@ defmodule Xamal.AppTasks do
   import Xamal.Remote
   import Xamal.TaskHelpers
 
-  alias Xamal.{Commander, Configuration, Context, EnvFile, SSH}
   alias Xamal.Commands.App, as: AppCommand
   alias Xamal.Commands.Base, as: CommandBase
   alias Xamal.Commands.Caddy
   alias Xamal.Commands.Server
   alias Xamal.Commands.Systemd
-
-  def boot(args, opts), do: boot(args, opts, Commander.context())
+  alias Xamal.Configuration
+  alias Xamal.Context
+  alias Xamal.EnvFile
+  alias Xamal.SSH
 
   def boot(_args, opts, context) do
     config = context.config
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
     run_hook("pre-app-boot", [skip_hooks: skip_hooks], context)
-    Enum.each(Context.roles(context), &boot_role(&1, config, skip_hooks))
+    Enum.each(Context.roles(context), &boot_role(&1, config, skip_hooks, context))
     run_hook("post-app-boot", [skip_hooks: skip_hooks], context)
   end
-
-  def start(args, opts), do: start(args, opts, Commander.context())
 
   def start(_args, _opts, context) do
     config = context.config
@@ -40,8 +39,6 @@ defmodule Xamal.AppTasks do
       execute_on(host, cmd, config)
     end)
   end
-
-  def stop(args, opts), do: stop(args, opts, Commander.context())
 
   def stop(_args, _opts, context) do
     config = context.config
@@ -58,8 +55,6 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def exec(args, opts), do: exec(args, opts, Commander.context())
-
   def exec(args, _opts, context) do
     config = context.config
     hosts = Context.hosts(context)
@@ -71,8 +66,6 @@ defmodule Xamal.AppTasks do
       Enum.each(hosts, &remote_exec(&1, config, command))
     end
   end
-
-  def logs(args, opts), do: logs(args, opts, Commander.context())
 
   def logs(args, _opts, context) do
     config = context.config
@@ -88,10 +81,8 @@ defmodule Xamal.AppTasks do
         log_opts
       end
 
-    dispatch_logs(log_opts, &AppCommand.logs(config, &1), config)
+    dispatch_logs(log_opts, &AppCommand.logs(config, &1), config, [], context)
   end
-
-  def details(args, opts), do: details(args, opts, Commander.context())
 
   def details(_args, _opts, context) do
     config = context.config
@@ -108,8 +99,6 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def version(args, opts), do: version(args, opts, Commander.context())
-
   def version(_args, _opts, context) do
     config = context.config
     hosts = Context.hosts(context)
@@ -124,8 +113,6 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def remove(args, opts), do: remove(args, opts, Commander.context())
-
   def remove(_args, opts, context) do
     confirming("This will remove all releases. Are you sure?", opts, fn ->
       stop([], opts, context)
@@ -133,8 +120,6 @@ defmodule Xamal.AppTasks do
       Enum.each(Context.hosts(context), &remove_host_releases(&1, config))
     end)
   end
-
-  def releases(args, opts), do: releases(args, opts, Commander.context())
 
   def releases(_args, _opts, context) do
     config = context.config
@@ -150,11 +135,9 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def stale_releases(args, opts), do: stale_releases(args, opts, Commander.context())
-
   def stale_releases(_args, _opts, context) do
     config = context.config
-    keep = Configuration.retain_releases(config)
+    keep = Xamal.Configuration.retain_releases(config)
     hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
@@ -166,8 +149,6 @@ defmodule Xamal.AppTasks do
       end
     end)
   end
-
-  def maintenance(args, opts), do: maintenance(args, opts, Commander.context())
 
   def maintenance(_args, opts, context) do
     config = context.config
@@ -187,8 +168,6 @@ defmodule Xamal.AppTasks do
 
     run_hook("post-caddy-reload", [skip_hooks: skip_hooks], context)
   end
-
-  def live(args, opts), do: live(args, opts, Commander.context())
 
   def live(_args, opts, context) do
     config = context.config
@@ -213,11 +192,13 @@ defmodule Xamal.AppTasks do
 
   # Private
 
-  defp boot_role(role, config, skip_hooks) do
+  defp boot_role(role, config, skip_hooks, context) do
     role
     |> host_batches(config.boot)
     |> Enum.with_index()
-    |> Enum.each(fn {batch, index} -> boot_batch(batch, index, role, config, skip_hooks) end)
+    |> Enum.each(fn {batch, index} ->
+      boot_batch(batch, index, role, config, skip_hooks, context)
+    end)
   end
 
   defp host_batches(role, boot_config) do
@@ -227,12 +208,12 @@ defmodule Xamal.AppTasks do
     end
   end
 
-  defp boot_batch(batch, index, role, config, skip_hooks) do
+  defp boot_batch(batch, index, role, config, skip_hooks, context) do
     maybe_wait_before_batch(index, config.boot.wait)
 
     Enum.each(batch, fn host ->
       say("  Booting #{role.name} on #{host}...", :magenta)
-      do_boot_host(config, role, host, skip_hooks)
+      do_boot_host(config, role, host, skip_hooks, context)
     end)
   end
 
@@ -277,13 +258,19 @@ defmodule Xamal.AppTasks do
     end
   end
 
-  defp do_boot_host(config, role, host, skip_hooks) do
+  defp do_boot_host(config, role, host, skip_hooks, context) do
     upload_env_file(host, config, role)
 
     new_port =
-      Xamal.BlueGreen.swap(host, config, config.version,
-        skip_hooks: skip_hooks,
-        rollback_version: current_version(host, config)
+      Xamal.BlueGreen.swap(
+        host,
+        config,
+        config.version,
+        [
+          skip_hooks: skip_hooks,
+          rollback_version: current_version(host, config)
+        ],
+        context
       )
 
     say("  Booted #{role.name} on #{host} (port #{new_port})", :green)

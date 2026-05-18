@@ -45,7 +45,7 @@
     ]
   ],
   source: [
-    forbidden_modules: ["Xamal.CLI", "Xamal.CLI.*", "Xamal.Shell"],
+    forbidden_modules: ["Xamal.CLI", "Xamal.CLI.*", "Xamal.Commander", "Xamal.Shell"],
     forbidden_files: ["lib/xamal/cli/**", "lib/xamal/shell.ex"]
   ],
   calls: [

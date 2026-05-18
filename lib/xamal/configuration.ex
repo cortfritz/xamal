@@ -31,6 +31,8 @@ defmodule Xamal.Configuration do
     :health_check
   ]
 
+  @type t :: %__MODULE__{}
+
   alias Xamal.Configuration.{
     Boot,
     Builder,

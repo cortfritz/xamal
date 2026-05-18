@@ -6,11 +6,8 @@ defmodule Xamal.LockTasks do
   import Xamal.Output
   import Xamal.Remote
 
-  alias Xamal.Commander
   alias Xamal.Commands.Lock, as: LockCommand
   alias Xamal.LocalIdentity
-
-  def status(args, opts), do: status(args, opts, Commander.context())
 
   def status(_args, _opts, context) do
     config = context.config
@@ -25,8 +22,6 @@ defmodule Xamal.LockTasks do
         say("No deploy lock in place", :green)
     end
   end
-
-  def acquire(args, opts), do: acquire(args, opts, Commander.context())
 
   def acquire(args, _opts, context) do
     config = context.config
@@ -57,8 +52,6 @@ defmodule Xamal.LockTasks do
       {:error, _} -> say("Failed to acquire lock (already locked?)", :red)
     end
   end
-
-  def release(args, opts), do: release(args, opts, Commander.context())
 
   def release(_args, _opts, context) do
     config = context.config

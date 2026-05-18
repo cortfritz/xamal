@@ -9,17 +9,14 @@ defmodule Xamal.Remove do
   import Xamal.TaskHelpers
 
   alias Xamal.AppTasks
-  alias Xamal.Commander
   alias Xamal.Commands.Server, as: ServerCommand
   alias Xamal.Commands.Systemd
-
-  def run(args, opts), do: run(args, opts, Commander.context())
 
   def run(_args, opts, context) do
     confirming("This will remove all releases and Caddy config. Are you sure?", opts, fn ->
       config = context.config
 
-      with_lock(fn ->
+      with_lock(context, fn context ->
         record_audit("Remove started", %{}, context)
         stop_app(opts, context)
         remove_systemd(config, context)

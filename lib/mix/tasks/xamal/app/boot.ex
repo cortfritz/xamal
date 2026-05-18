@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Xamal.App.Boot do
   @moduledoc "Boots the application on servers."
   @shortdoc "Boots the app"
-  use Xamal.MixTask, run: &Xamal.AppTasks.boot/3
+  use Xamal.MixTask, run: {Xamal.AppTasks, :boot}
 end

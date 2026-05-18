@@ -5,11 +5,9 @@ defmodule Xamal.Versions do
 
   import Xamal.Output
 
-  alias Xamal.{Commander, Context}
   alias Xamal.Commands.App, as: AppCommand
+  alias Xamal.Context
   alias Xamal.SSH
-
-  def list(args, opts), do: list(args, opts, Commander.context())
 
   def list(_args, _opts, context) do
     config = context.config

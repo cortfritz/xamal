@@ -18,6 +18,15 @@ defmodule Xamal.Context do
 
   alias Xamal.Configuration
 
+  @type t :: %__MODULE__{
+          config: Configuration.t() | nil,
+          specific_hosts: [String.t()] | nil,
+          specific_roles: [String.t()] | nil,
+          verbosity: :debug | :info | :error | nil,
+          holding_lock: boolean(),
+          connected: boolean()
+        }
+
   def new(config \\ nil), do: %__MODULE__{config: config}
 
   def put_config(%__MODULE__{} = context, config), do: %{context | config: config}

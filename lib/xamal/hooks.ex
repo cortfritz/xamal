@@ -3,11 +3,8 @@ defmodule Xamal.Hooks do
 
   import Xamal.Output
 
-  alias Xamal.Commander
   alias Xamal.Commands.Hook
   alias Xamal.LocalIdentity
-
-  def run_hook(hook_name, opts \\ []), do: run_hook(hook_name, opts, Commander.context())
 
   def run_hook(hook_name, opts, context) do
     config = context.config

@@ -5,11 +5,9 @@ defmodule Xamal.Prune do
 
   import Xamal.Output
 
-  alias Xamal.{Commander, Context, SSH}
   alias Xamal.Commands.Prune, as: PruneCommand
   alias Xamal.Configuration
-
-  def prune(args, opts), do: prune(args, opts, Commander.context())
+  alias Xamal.{Context, SSH}
 
   def prune(_args, _opts, context) do
     config = context.config

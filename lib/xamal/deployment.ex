@@ -9,14 +9,17 @@ defmodule Xamal.Deployment do
   import Xamal.Remote
   import Xamal.TaskHelpers
 
-  alias Xamal.{AppTasks, BuildTasks, Commander, Context, Prune, ServerTasks}
+  alias Xamal.{AppTasks, BuildTasks, Context, Prune, ServerTasks}
   alias Xamal.Commands.App, as: AppCommand
 
-  def setup(opts, context \\ Commander.context()) do
+  @type task_opts :: keyword()
+
+  @spec setup(task_opts(), Context.t()) :: term()
+  def setup(opts, context) do
     ensure_clean_git!(opts)
 
     print_runtime(fn ->
-      with_lock(fn ->
+      with_lock(context, fn context ->
         record_audit("Setup started", %{}, context)
 
         say("Bootstrapping servers...", :magenta)
@@ -29,7 +32,8 @@ defmodule Xamal.Deployment do
     end)
   end
 
-  def deploy(opts, context \\ Commander.context()) do
+  @spec deploy(task_opts(), Context.t()) :: term()
+  def deploy(opts, context) do
     ensure_clean_git!(opts)
 
     config = context.config
@@ -42,7 +46,8 @@ defmodule Xamal.Deployment do
     runtime
   end
 
-  def redeploy(opts, context \\ Commander.context()) do
+  @spec redeploy(task_opts(), Context.t()) :: term()
+  def redeploy(opts, context) do
     ensure_clean_git!(opts)
 
     config = context.config
@@ -52,7 +57,7 @@ defmodule Xamal.Deployment do
       print_runtime(fn ->
         distribute_release(opts, context)
 
-        with_lock(fn ->
+        with_lock(context, fn context ->
           run_hook("pre-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
 
           say("Booting app...", :magenta)
@@ -65,22 +70,23 @@ defmodule Xamal.Deployment do
     runtime
   end
 
-  def deploy_release(opts, context \\ Commander.context()), do: do_deploy(opts, context)
+  def deploy_release(opts, context), do: do_deploy(opts, context)
 
-  def rollback(args, opts, context \\ Commander.context())
+  @spec rollback([String.t()], task_opts(), Context.t()) :: term()
+  def rollback(args, opts, context)
 
   def rollback([version | _], opts, context) do
     record_audit("Rollback started", %{version: version}, context)
 
     print_runtime(fn ->
-      with_lock(fn -> run_rollback(version, opts, context) end)
+      with_lock(context, fn context -> run_rollback(version, opts, context) end)
     end)
 
     record_audit("Rollback completed", %{version: version}, context)
   end
 
   def rollback([], opts, context) do
-    case previous_version(context.config) do
+    case previous_version(context) do
       nil ->
         IO.puts(:stderr, "No previous version found to roll back to.")
         IO.puts(:stderr, "Usage: mix xamal.rollback [VERSION]")
@@ -98,7 +104,7 @@ defmodule Xamal.Deployment do
   defp do_deploy(opts, context) do
     distribute_release(opts, context)
 
-    with_lock(fn ->
+    with_lock(context, fn context ->
       run_hook("pre-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
 
       say("Booting app on servers...", :magenta)
@@ -113,21 +119,21 @@ defmodule Xamal.Deployment do
     config = context.config
     say("Rolling back to version #{version}...", :magenta)
     run_hook("pre-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
-    Enum.each(Context.roles(context), &rollback_role(config, &1, version))
+    Enum.each(Context.roles(context), &rollback_role(config, &1, version, context))
     run_hook("post-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
   end
 
-  defp rollback_role(config, role, version) do
+  defp rollback_role(config, role, version, context) do
     Enum.each(role.hosts, fn host ->
       say("  Rolling back #{host} (#{role.name})...", :magenta)
-      new_port = Xamal.BlueGreen.swap(host, config, version)
+      new_port = Xamal.BlueGreen.swap(host, config, version, [], context)
       say("  Rolled back #{host} to #{version} (port #{new_port})", :green)
     end)
   end
 
-  defp previous_version(config) do
-    releases = releases(config)
-    current = current_version(config)
+  defp previous_version(context) do
+    releases = releases(context)
+    current = current_version(context)
 
     case Enum.drop_while(releases, &(&1 != current)) do
       [_current, previous | _] -> previous
@@ -135,15 +141,15 @@ defmodule Xamal.Deployment do
     end
   end
 
-  defp releases(config) do
-    case on_primary(AppCommand.list_releases(config)) do
+  defp releases(context) do
+    case on_primary(AppCommand.list_releases(context.config), context) do
       {:ok, output} -> output |> String.trim() |> String.split("\n", trim: true)
       {:error, _} -> []
     end
   end
 
-  defp current_version(config) do
-    case on_primary(AppCommand.current_version(config)) do
+  defp current_version(context) do
+    case on_primary(AppCommand.current_version(context.config), context) do
       {:ok, output} -> String.trim(output)
       {:error, _} -> nil
     end

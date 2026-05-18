@@ -1,12 +1,11 @@
 defmodule Xamal.ConfigPrinter do
   @moduledoc false
 
-  alias Xamal.Commander
   alias Xamal.Configuration
 
-  def print do
-    config = Commander.config()
+  def print(_args, _opts, context), do: print(context.config)
 
+  def print(config) do
     IO.puts("Service: #{Configuration.service(config)}")
     IO.puts("Version: #{config.version}")
     IO.puts("Destination: #{config.destination || "(none)"}")

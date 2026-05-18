@@ -1,18 +1,23 @@
 defmodule Xamal.Remote do
   @moduledoc false
 
-  alias Xamal.{Commander, SSH}
   alias Xamal.Commands.{Auditor, Caddy}
+  alias Xamal.SSH
 
-  def on_primary(command_parts), do: on_primary(command_parts, Commander.context())
+  @type command_parts :: [String.Chars.t()]
+
+  @spec on_primary(command_parts(), Xamal.Context.t()) :: {:ok, String.t()} | {:error, term()}
+  @spec on_hosts(command_parts(), Xamal.Context.t()) :: [{String.t(), term()}]
+  @spec record_audit(String.t(), map(), Xamal.Context.t()) :: term()
+  @spec read_active_port(String.t(), Xamal.Configuration.t()) :: integer() | nil
+  @spec ssh_exec(String.t(), command_parts(), Xamal.Configuration.t()) ::
+          {:ok, String.t()} | {:error, term()}
 
   def on_primary(command_parts, context) do
     config = context.config
     host = Xamal.Context.primary_host(context)
     SSH.execute_command(host, command_parts, ssh_config: config.ssh)
   end
-
-  def on_hosts(command_parts), do: on_hosts(command_parts, Commander.context())
 
   def on_hosts(command_parts, context) do
     config = context.config
@@ -21,9 +26,6 @@ defmodule Xamal.Remote do
     |> Xamal.Context.hosts()
     |> SSH.on(fn host -> SSH.execute_command(host, command_parts, ssh_config: config.ssh) end)
   end
-
-  def record_audit(message, details \\ %{}),
-    do: record_audit(message, details, Commander.context())
 
   def record_audit(message, details, context) do
     config = context.config

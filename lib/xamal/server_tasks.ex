@@ -6,10 +6,8 @@ defmodule Xamal.ServerTasks do
   import Xamal.Logs
   import Xamal.Output
 
-  alias Xamal.{Commander, Context, SSH}
   alias Xamal.Commands.{Caddy, Server, Systemd}
-
-  def exec(args, opts), do: exec(args, opts, Commander.context())
+  alias Xamal.{Context, SSH}
 
   def exec(args, _opts, context) do
     command = Enum.join(args, " ")
@@ -29,8 +27,6 @@ defmodule Xamal.ServerTasks do
       end
     end)
   end
-
-  def bootstrap(args, opts), do: bootstrap(args, opts, Commander.context())
 
   def bootstrap(_args, _opts, context) do
     config = context.config
@@ -75,12 +71,10 @@ defmodule Xamal.ServerTasks do
     end)
   end
 
-  def logs(args, opts), do: logs(args, opts, Commander.context())
-
   def logs(args, _opts, context) do
     config = context.config
     log_opts = parse_log_opts(args)
 
-    dispatch_logs(log_opts, &Caddy.logs/1, config, type: "Server")
+    dispatch_logs(log_opts, &Caddy.logs/1, config, [type: "Server"], context)
   end
 end
