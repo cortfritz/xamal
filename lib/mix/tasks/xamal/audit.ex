@@ -5,6 +5,6 @@ defmodule Mix.Tasks.Xamal.Audit do
 
   @impl true
   def run(args) do
-    Xamal.MixTask.run(args, &Xamal.Operations.audit/2)
+    Xamal.MixTask.run(args, &Xamal.Audit.print/2)
   end
 end

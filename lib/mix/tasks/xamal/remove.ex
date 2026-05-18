@@ -5,6 +5,6 @@ defmodule Mix.Tasks.Xamal.Remove do
 
   @impl true
   def run(args) do
-    Xamal.MixTask.run(args, &Xamal.Operations.remove/2)
+    Xamal.MixTask.run(args, &Xamal.Remove.run/2)
   end
 end

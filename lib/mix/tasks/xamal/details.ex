@@ -5,6 +5,6 @@ defmodule Mix.Tasks.Xamal.Details do
 
   @impl true
   def run(args) do
-    Xamal.MixTask.run(args, &Xamal.Operations.details/2)
+    Xamal.MixTask.run(args, &Xamal.Details.print/2)
   end
 end

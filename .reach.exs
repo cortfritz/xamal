@@ -3,13 +3,16 @@
     mix_tasks: "Mix.Tasks.Xamal.*",
     orchestration: [
       "Xamal.Deployment",
-      "Xamal.Operations",
       "Xamal.App",
       "Xamal.Build",
       "Xamal.Server",
       "Xamal.Lock",
       "Xamal.Prune",
-      "Xamal.SecretCommands"
+      "Xamal.SecretCommands",
+      "Xamal.Audit",
+      "Xamal.Details",
+      "Xamal.Remove",
+      "Xamal.Versions"
     ],
     commands: "Xamal.Commands.*",
     configuration: "Xamal.Configuration.*",
