@@ -71,7 +71,7 @@ defmodule Xamal.Commands.Builder do
   @doc """
   Build the release inside a Docker container for cross-compilation.
 
-  The Docker image can be configured via `builder.docker` in deploy.yml:
+  The Docker image can be configured via `builder.docker` in config/xamal.exs:
   - `docker: true` uses a default hexpm/elixir image
   - `docker: "image:tag"` uses the specified image
 

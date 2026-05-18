@@ -221,40 +221,7 @@ defmodule Xamal.CLI.Main do
   end
 
   def init(_args, _opts) do
-    # Create config/deploy.yml
-    deploy_file = "config/deploy.yml"
-
-    if File.exists?(deploy_file) do
-      say("Config file already exists in #{deploy_file} (remove first to create a new one)")
-    else
-      File.mkdir_p!("config")
-      File.write!(deploy_file, deploy_template())
-      say("Created configuration file in #{deploy_file}", :green)
-    end
-
-    # Create .xamal/secrets
-    secrets_file = ".xamal/secrets"
-
-    unless File.exists?(secrets_file) do
-      File.mkdir_p!(".xamal")
-      File.write!(secrets_file, secrets_template())
-      say("Created #{secrets_file} file", :green)
-    end
-
-    # Create .xamal/hooks directory
-    hooks_dir = ".xamal/hooks"
-
-    unless File.dir?(hooks_dir) do
-      File.mkdir_p!(hooks_dir)
-
-      Enum.each(sample_hooks(), fn {name, content} ->
-        path = Path.join(hooks_dir, name)
-        File.write!(path, content)
-        File.chmod!(path, 0o755)
-      end)
-
-      say("Created sample hooks in #{hooks_dir}", :green)
-    end
+    Xamal.Init.run(yes: true)
   end
 
   def remove(_args, opts) do
@@ -307,90 +274,5 @@ defmodule Xamal.CLI.Main do
   defp do_rollback_host(config, _role, host, version) do
     new_port = blue_green_swap(host, config, version)
     say("  Rolled back #{host} to #{version} (port #{new_port})", :green)
-  end
-
-  defp deploy_template do
-    """
-    service: my-app
-
-    servers:
-      web:
-        - 192.168.0.1
-
-    ssh:
-      user: deploy
-
-    caddy:
-      host: app.example.com
-      app_port: 4000
-
-    env:
-      clear:
-        PHX_HOST: app.example.com
-      secret:
-        - SECRET_KEY_BASE
-
-    release:
-      name: my_app
-      mix_env: prod
-
-    health_check:
-      path: /health
-    """
-  end
-
-  defp secrets_template do
-    """
-    # Secrets are loaded from this file and made available as env vars on the server.
-    # Use command substitution to fetch secrets from a vault:
-    #   SECRET_KEY_BASE=$(op read "op://Vault/Item/Field")
-
-    SECRET_KEY_BASE=change_me
-    """
-  end
-
-  defp sample_hooks do
-    [
-      {"pre-build",
-       """
-       #!/bin/sh
-       echo "Running pre-build hook..."
-       """},
-      {"post-build",
-       """
-       #!/bin/sh
-       echo "Running post-build hook..."
-       """},
-      {"pre-deploy",
-       """
-       #!/bin/sh
-       echo "Running pre-deploy hook..."
-       """},
-      {"post-deploy",
-       """
-       #!/bin/sh
-       echo "Running post-deploy hook..."
-       """},
-      {"pre-app-boot",
-       """
-       #!/bin/sh
-       echo "Running pre-app-boot hook..."
-       """},
-      {"post-app-boot",
-       """
-       #!/bin/sh
-       echo "Running post-app-boot hook..."
-       """},
-      {"pre-caddy-reload",
-       """
-       #!/bin/sh
-       echo "Running pre-caddy-reload hook..."
-       """},
-      {"post-caddy-reload",
-       """
-       #!/bin/sh
-       echo "Running post-caddy-reload hook..."
-       """}
-    ]
   end
 end

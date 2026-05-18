@@ -11,7 +11,7 @@ defmodule Xamal.CLIIntegration.ErrorTest do
   test "missing config file exits 1 with helpful message", %{dir: dir} do
     {output, 1} = xamal(["deploy"], dir)
     assert output =~ "Configuration file not found"
-    assert output =~ "xamal init"
+    assert output =~ "mix xamal.init"
   end
 
   test "unknown command exits 1", %{dir: dir} do

@@ -2,8 +2,8 @@ defmodule Xamal.Configuration do
   @moduledoc """
   Main configuration module.
 
-  Loads deploy.yml (with EEx template evaluation), merges destination
-  overrides, and provides access to all sub-configurations.
+  Loads config/xamal.exs, merges destination overrides, and provides access to all
+  sub-configurations.
   """
 
   defstruct [
@@ -37,10 +37,10 @@ defmodule Xamal.Configuration do
   }
 
   @doc """
-  Create configuration from a YAML config file.
+  Create configuration from an Elixir config file.
   """
   def create_from(opts \\ []) do
-    config_file = Keyword.get(opts, :config_file, "config/deploy.yml")
+    config_file = Keyword.get(opts, :config_file, "config/xamal.exs")
     destination = Keyword.get(opts, :destination)
     version = Keyword.get(opts, :version)
 
@@ -182,7 +182,7 @@ defmodule Xamal.Configuration do
     base = load_config_file(config_file)
 
     if destination do
-      dest_file = String.replace(config_file, ".yml", ".#{destination}.yml")
+      dest_file = destination_config_file(config_file, destination)
 
       if File.exists?(dest_file) do
         dest_config = load_config_file(dest_file)
@@ -195,21 +195,31 @@ defmodule Xamal.Configuration do
     end
   end
 
+  defp destination_config_file(config_file, destination) do
+    root = Path.rootname(config_file)
+    ext = Path.extname(config_file)
+    "#{root}.#{destination}#{ext}"
+  end
+
   defp load_config_file(file) do
     unless File.exists?(file) do
       raise "Configuration file not found: #{file}"
     end
 
-    content = File.read!(file)
+    file
+    |> Config.Reader.read!()
+    |> Keyword.get(:xamal, [])
+    |> normalize_config()
+  rescue
+    e in Code.LoadError ->
+      reraise RuntimeError,
+              [message: "Failed to read #{file}: #{Exception.message(e)}"],
+              __STACKTRACE__
 
-    # Provide `env` as a map binding so deploy.yml can use <%= env["SECRET_KEY"] %>
-    # System.get_env("FOO") also works since EEx evaluates Elixir code
-    evaluated = EEx.eval_string(content, env: System.get_env())
-
-    case YamlElixir.read_from_string(evaluated) do
-      {:ok, config} -> config
-      {:error, reason} -> raise "Failed to parse #{file}: #{inspect(reason)}"
-    end
+    e in SyntaxError ->
+      reraise RuntimeError,
+              [message: "Failed to parse #{file}: #{Exception.message(e)}"],
+              __STACKTRACE__
   end
 
   defp version_from_config(_raw_config) do
@@ -231,4 +241,25 @@ defmodule Xamal.Configuration do
   end
 
   defp deep_merge(_left, right), do: right
+
+  defp normalize_config(config) when is_list(config) do
+    if Keyword.keyword?(config) do
+      Enum.into(config, %{}, fn {key, value} -> {normalize_key(key), normalize_config(value)} end)
+    else
+      Enum.map(config, &normalize_config/1)
+    end
+  end
+
+  defp normalize_config(config) when is_map(config) do
+    Map.new(config, fn {key, value} -> {normalize_key(key), normalize_config(value)} end)
+  end
+
+  defp normalize_config(value) when is_atom(value) and value not in [true, false, nil] do
+    Atom.to_string(value)
+  end
+
+  defp normalize_config(value), do: value
+
+  defp normalize_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp normalize_key(key), do: key
 end

@@ -43,7 +43,7 @@ defmodule Xamal.CLIIntegration.FeaturesTest do
 
   test "alias dispatches to target command", %{dir: dir} do
     setup_config(dir)
-    # "info" is aliased to "config" in our test deploy.yml
+    # "info" is aliased to "config" in our test config.
     {output, 0} = xamal(["info"], dir)
     assert output =~ "Service: test-app"
     assert output =~ "Caddy: test.example.com"
@@ -53,7 +53,7 @@ defmodule Xamal.CLIIntegration.FeaturesTest do
 
   test "custom config file path", %{dir: dir} do
     setup_config(dir)
-    {output, 0} = xamal(["config", "-c", "config/deploy.yml"], dir)
+    {output, 0} = xamal(["config", "-c", "config/xamal.exs"], dir)
     assert output =~ "Service: test-app"
   end
 
@@ -62,16 +62,20 @@ defmodule Xamal.CLIIntegration.FeaturesTest do
   test "destination file overrides base config", %{dir: dir} do
     setup_config(dir)
 
-    staging_yml = """
-    servers:
-      web:
-        - 10.0.1.1
-    caddy:
-      host: staging.example.com
-      app_port: 4000
+    staging_config = """
+    import Config
+
+    config :xamal,
+      servers: [
+        web: ["10.0.1.1"]
+      ],
+      caddy: [
+        host: "staging.example.com",
+        app_port: 4000
+      ]
     """
 
-    File.write!(Path.join(dir, "config/deploy.staging.yml"), staging_yml)
+    File.write!(Path.join(dir, "config/xamal.staging.exs"), staging_config)
 
     {output, 0} = xamal(["config", "-d", "staging"], dir)
     assert output =~ "Destination: staging"
@@ -91,39 +95,20 @@ defmodule Xamal.CLIIntegration.FeaturesTest do
     assert output =~ "Caddy: test.example.com"
   end
 
-  # -- EEx interpolation --
+  # -- Elixir config --
 
-  test "config supports env[] binding", %{dir: dir} do
-    eex_yml = """
-    service: <%= env["XAMAL_TEST_SERVICE"] || "fallback-app" %>
-    servers:
-      web:
-        - 10.0.0.1
-    caddy:
-      host: app.example.com
+  test "config supports Elixir expressions", %{dir: dir} do
+    config = """
+    import Config
+
+    config :xamal,
+      service: System.get_env("XAMAL_TEST_SVC") || "sys-app",
+      servers: [web: ["10.0.0.1"]],
+      caddy: [host: "app.example.com"]
     """
 
     File.mkdir_p!(Path.join(dir, "config"))
-    File.write!(Path.join(dir, "config/deploy.yml"), eex_yml)
-    File.mkdir_p!(Path.join(dir, ".xamal"))
-    File.write!(Path.join(dir, ".xamal/secrets"), "")
-
-    {output, 0} = xamal(["config"], dir)
-    assert output =~ "Service: fallback-app"
-  end
-
-  test "config supports System.get_env", %{dir: dir} do
-    eex_yml = """
-    service: <%= System.get_env("XAMAL_TEST_SVC") || "sys-app" %>
-    servers:
-      web:
-        - 10.0.0.1
-    caddy:
-      host: app.example.com
-    """
-
-    File.mkdir_p!(Path.join(dir, "config"))
-    File.write!(Path.join(dir, "config/deploy.yml"), eex_yml)
+    File.write!(Path.join(dir, "config/xamal.exs"), config)
     File.mkdir_p!(Path.join(dir, ".xamal"))
     File.write!(Path.join(dir, ".xamal/secrets"), "")
 

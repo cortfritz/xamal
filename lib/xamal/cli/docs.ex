@@ -14,10 +14,10 @@ defmodule Xamal.CLI.Docs do
     IO.puts("""
     Xamal Configuration Reference
 
-    Usage: xamal docs <topic>
+    Usage: mix xamal docs <topic>
 
     Topics:
-      config          deploy.yml overview and structure
+      config          config/xamal.exs overview and structure
       servers         Server and role configuration
       ssh             SSH connection options
       caddy           Caddy reverse proxy and TLS
@@ -35,33 +35,36 @@ defmodule Xamal.CLI.Docs do
 
   defp print_topic("config") do
     IO.puts("""
-    # deploy.yml Configuration
+    # config/xamal.exs Configuration
 
-    Xamal reads configuration from `config/deploy.yml` (or a custom path via -c).
-    The file supports EEx template evaluation:
+    Xamal reads Elixir configuration from `config/xamal.exs` (or a custom path via -c).
+    Since this is a normal config file, you can use Elixir expressions:
 
-      service: <%= env["SERVICE_NAME"] || "my-app" %>
-      service: <%= System.get_env("SERVICE_NAME") || "my-app" %>
+      import Config
+
+      config :xamal,
+        service: System.get_env("SERVICE_NAME") || "my-app",
+        servers: [web: ["192.168.0.1"]]
 
     ## Top-level keys
 
-      service:            App name (required)
-      servers:            Server/role definitions (required)
-      ssh:                SSH connection options
-      caddy:              Reverse proxy configuration
-      env:                Environment variables
-      release:            Elixir release settings
-      health_check:       Health check configuration
-      boot:               Rolling deploy options
-      builder:            Build configuration
-      hooks_path:         Path to hook scripts (default: .xamal/hooks)
-      secrets_path:       Path to secrets file (default: .xamal/secrets)
-      readiness_delay:    Seconds to wait before health checks (default: 7)
-      deploy_timeout:     Max deploy time in seconds (default: 30)
-      drain_timeout:      Seconds to drain old release (default: 30)
-      retain_releases:    Number of old releases to keep (default: 5)
-      primary_role:       Primary role name (default: web)
-      aliases:            Command aliases
+      :service            App name (required)
+      :servers            Server/role definitions (required)
+      :ssh                SSH connection options
+      :caddy              Reverse proxy configuration
+      :env                Environment variables
+      :release            Elixir release settings
+      :health_check       Health check configuration
+      :boot               Rolling deploy options
+      :builder            Build configuration
+      :hooks_path         Path to hook scripts (default: .xamal/hooks)
+      :secrets_path       Path to secrets file (default: .xamal/secrets)
+      :readiness_delay    Seconds to wait before health checks (default: 7)
+      :deploy_timeout     Max deploy time in seconds (default: 30)
+      :drain_timeout      Seconds to drain old release (default: 30)
+      :retain_releases    Number of old releases to keep (default: 5)
+      :primary_role       Primary role name (default: web)
+      :aliases            Command aliases
     """)
   end
 
@@ -159,7 +162,7 @@ defmodule Xamal.CLI.Docs do
           - SECRET_KEY_BASE
           - DATABASE_PASSWORD
 
-    Clear values are stored in the deploy.yml. Secret values are loaded
+    Clear values are stored in config/xamal.exs. Secret values are loaded
     from .xamal/secrets (dotenv format) and uploaded to each server.
 
     Secret files support command substitution:
@@ -276,8 +279,8 @@ defmodule Xamal.CLI.Docs do
 
     ## Skipping hooks
 
-      xamal deploy --skip-hooks
-      xamal deploy -H
+      mix xamal.deploy --skip-hooks
+      mix xamal.deploy -H
     """)
   end
 
@@ -322,25 +325,24 @@ defmodule Xamal.CLI.Docs do
     Destinations let you deploy to different environments (staging, production)
     from the same config base.
 
-      config/deploy.yml               Base configuration
-      config/deploy.staging.yml       Staging overrides
-      config/deploy.production.yml    Production overrides
+      config/xamal.exs                Base configuration
+      config/xamal.staging.exs        Staging overrides
+      config/xamal.production.exs     Production overrides
 
     ## Usage
 
-      xamal deploy -d staging
-      xamal deploy -d production
+      mix xamal.deploy -d staging
+      mix xamal.deploy -d production
 
     Destination files are deep-merged over the base config. Only include
     keys you want to override:
 
-      # config/deploy.staging.yml
-      servers:
-        web:
-          - staging.example.com
-      caddy:
-        host: staging.example.com
-        app_port: 4000
+      # config/xamal.staging.exs
+      import Config
+
+      config :xamal,
+        servers: [web: ["staging.example.com"]],
+        caddy: [host: "staging.example.com", app_port: 4000]
 
     Secrets also support destinations:
 
@@ -353,12 +355,14 @@ defmodule Xamal.CLI.Docs do
     IO.puts("""
     # Command Aliases
 
-    Define shortcuts in deploy.yml:
+    Define shortcuts in config/xamal.exs:
 
-      aliases:
-        console: app exec -i "bin/my_app remote"
-        logs: app logs -f
-        info: config
+      config :xamal,
+        aliases: [
+          console: ~s(app exec -i "bin/my_app remote"),
+          logs: "app logs -f",
+          info: "config"
+        ]
 
     ## Usage
 

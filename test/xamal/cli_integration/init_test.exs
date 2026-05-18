@@ -12,10 +12,8 @@ defmodule Xamal.CLIIntegration.InitTest do
     {output, 0} = xamal(["init"], dir)
 
     assert output =~ "Created configuration file"
-    assert output =~ "Created .xamal/secrets"
-    assert output =~ "Created sample hooks"
 
-    assert File.exists?(Path.join(dir, "config/deploy.yml"))
+    assert File.exists?(Path.join(dir, "config/xamal.exs"))
     assert File.exists?(Path.join(dir, ".xamal/secrets"))
 
     # All 8 hooks should be created and executable
@@ -27,9 +25,9 @@ defmodule Xamal.CLIIntegration.InitTest do
       assert Bitwise.band(mode, 0o111) != 0, "Expected hook #{hook} to be executable"
     end
 
-    # Verify deploy.yml content
-    content = File.read!(Path.join(dir, "config/deploy.yml"))
-    assert content =~ "service: my-app"
+    content = File.read!(Path.join(dir, "config/xamal.exs"))
+    assert content =~ "import Config"
+    assert content =~ "service: \"my-app\""
     assert content =~ "servers:"
     assert content =~ "caddy:"
     assert content =~ "release:"
@@ -39,10 +37,9 @@ defmodule Xamal.CLIIntegration.InitTest do
   test "does not overwrite existing config", %{dir: dir} do
     setup_config(dir)
     {output, 0} = xamal(["init"], dir)
-    assert output =~ "already exists"
+    assert output =~ "config/xamal.exs already exists"
 
-    # Original content preserved
-    content = File.read!(Path.join(dir, "config/deploy.yml"))
+    content = File.read!(Path.join(dir, "config/xamal.exs"))
     assert content =~ "test-app"
   end
 end

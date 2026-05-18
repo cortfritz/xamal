@@ -35,20 +35,16 @@ defmodule Xamal.CLITest do
       try do
         File.cd!(dir)
 
-        output = capture_io(fn -> Xamal.CLI.Main.init([], []) end)
+        capture_io(fn -> Xamal.CLI.Main.init([], []) end)
 
-        assert output =~ "Created configuration file"
-        assert output =~ "Created .xamal/secrets"
-        assert output =~ "Created sample hooks"
-
-        assert File.exists?(Path.join(dir, "config/deploy.yml"))
+        assert File.exists?(Path.join(dir, "config/xamal.exs"))
         assert File.exists?(Path.join(dir, ".xamal/secrets"))
         assert File.exists?(Path.join(dir, ".xamal/hooks/pre-deploy"))
         assert File.exists?(Path.join(dir, ".xamal/hooks/post-deploy"))
 
-        # Verify deploy.yml content
-        content = File.read!(Path.join(dir, "config/deploy.yml"))
-        assert content =~ "service: my-app"
+        content = File.read!(Path.join(dir, "config/xamal.exs"))
+        assert content =~ "import Config"
+        assert content =~ "service: \"my-app\""
         assert content =~ "servers:"
         assert content =~ "caddy:"
       after
@@ -63,12 +59,11 @@ defmodule Xamal.CLITest do
       try do
         File.cd!(dir)
         File.mkdir_p!("config")
-        File.write!("config/deploy.yml", "existing")
+        File.write!("config/xamal.exs", "import Config\n")
 
-        output = capture_io(fn -> Xamal.CLI.Main.init([], []) end)
+        capture_io(fn -> Xamal.CLI.Main.init([], []) end)
 
-        assert output =~ "already exists"
-        assert File.read!("config/deploy.yml") == "existing"
+        assert File.read!("config/xamal.exs") == "import Config\n"
       after
         File.cd!(original_dir)
       end

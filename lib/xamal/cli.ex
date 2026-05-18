@@ -127,9 +127,9 @@ defmodule Xamal.CLI do
     config = init_config(global_opts)
 
     unless config do
-      config_file = Keyword.get(global_opts, :config_file, "config/deploy.yml")
+      config_file = Keyword.get(global_opts, :config_file, "config/xamal.exs")
       IO.puts(:stderr, "Configuration file not found: #{config_file}")
-      IO.puts(:stderr, "Run 'xamal init' to generate a configuration file.")
+      IO.puts(:stderr, "Run 'mix xamal.init' to generate a configuration file.")
       System.halt(1)
     end
 
@@ -188,7 +188,7 @@ defmodule Xamal.CLI do
     # Return cached config if already loaded (avoids double load for alias dispatch)
     case Process.get(:xamal_config) do
       nil ->
-        config_file = Keyword.get(global_opts, :config_file, "config/deploy.yml")
+        config_file = Keyword.get(global_opts, :config_file, "config/xamal.exs")
         destination = Keyword.get(global_opts, :destination)
         version = Keyword.get(global_opts, :version)
 
@@ -290,7 +290,7 @@ defmodule Xamal.CLI do
       -p, --primary       Run only on primary host
       -h, --hosts HOSTS   Run on specific hosts (comma-separated)
       -r, --roles ROLES   Run on specific roles (comma-separated)
-      -c, --config-file   Path to config file (default: config/deploy.yml)
+      -c, --config-file   Path to config file (default: config/xamal.exs)
       -d, --destination   Destination (staging, production, etc.)
       -H, --skip-hooks    Skip hook scripts
       --skip-dirty-check  Allow deploy with uncommitted changes
