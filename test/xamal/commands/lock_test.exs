@@ -15,9 +15,9 @@ defmodule Xamal.Commands.LockTest do
     health_check: %Xamal.Configuration.HealthCheck{}
   }
 
-  describe "acquire/3" do
+  describe "acquire/5" do
     test "creates lock directory and writes details" do
-      cmd = Lock.acquire(@config, "deploying", "abc123")
+      cmd = Lock.acquire(@config, "deploying", "abc123", "Test User", "2026-01-01T00:00:00Z")
       cmd_str = Enum.join(cmd, " ")
 
       assert cmd_str =~ "mkdir"

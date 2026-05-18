@@ -22,7 +22,7 @@ defmodule Xamal.Remote do
 
     if config do
       config
-      |> Auditor.record(message, details)
+      |> Auditor.record(message, DateTime.utc_now() |> DateTime.to_iso8601(), details)
       |> on_primary()
     end
   end

@@ -6,6 +6,7 @@ defmodule Xamal.DeployLock do
 
   alias Xamal.Commander
   alias Xamal.Commands.Lock
+  alias Xamal.LocalIdentity
 
   def with_lock(fun) do
     if Commander.holding_lock?() do
@@ -36,7 +37,15 @@ defmodule Xamal.DeployLock do
     say("Acquiring the deploy lock...", :magenta)
     on_primary(Lock.ensure_locks_directory(config))
 
-    case on_primary(Lock.acquire(config, "Automatic deploy lock", config.version)) do
+    case on_primary(
+           Lock.acquire(
+             config,
+             "Automatic deploy lock",
+             config.version,
+             LocalIdentity.git_user_name(),
+             DateTime.utc_now() |> DateTime.to_iso8601()
+           )
+         ) do
       {:ok, _} ->
         Commander.set_holding_lock(true)
 

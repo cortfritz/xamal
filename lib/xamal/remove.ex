@@ -8,7 +8,7 @@ defmodule Xamal.Remove do
   import Xamal.Remote
   import Xamal.TaskHelpers
 
-  alias Xamal.App
+  alias Xamal.AppTasks
   alias Xamal.Commander
   alias Xamal.Commands.Server, as: ServerCommand
   alias Xamal.Commands.Systemd
@@ -30,7 +30,7 @@ defmodule Xamal.Remove do
 
   defp stop_app(opts) do
     say("Stopping app...", :magenta)
-    App.run("stop", [], opts)
+    AppTasks.stop([], opts)
   end
 
   defp remove_systemd(config) do

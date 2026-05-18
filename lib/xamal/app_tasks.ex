@@ -1,4 +1,4 @@
-defmodule Xamal.App do
+defmodule Xamal.AppTasks do
   @moduledoc """
   Application task implementations.
   """
@@ -15,28 +15,6 @@ defmodule Xamal.App do
   alias Xamal.Commands.Caddy
   alias Xamal.Commands.Server
   alias Xamal.Commands.Systemd
-
-  @commands %{
-    "boot" => :boot,
-    "start" => :start,
-    "stop" => :stop,
-    "exec" => :exec,
-    "logs" => :logs,
-    "details" => :details,
-    "version" => :version,
-    "remove" => :remove,
-    "releases" => :releases,
-    "stale_releases" => :stale_releases,
-    "maintenance" => :maintenance,
-    "live" => :live
-  }
-
-  def run(subcommand, args, opts) do
-    case Map.get(@commands, subcommand) do
-      nil -> say("Unknown app command: #{subcommand}", :red)
-      command -> apply(__MODULE__, command, [args, opts])
-    end
-  end
 
   def boot(_args, opts) do
     config = Commander.config()
@@ -207,26 +185,6 @@ defmodule Xamal.App do
     end)
 
     run_hook("post-caddy-reload", skip_hooks: skip_hooks)
-  end
-
-  def help do
-    IO.puts("""
-    Use `mix help | grep xamal.app` to list app tasks.
-
-    Commands:
-      boot              Start app (or restart with zero-downtime)
-      start             Start existing release
-      stop              Stop release
-      exec [-i] CMD     Run command in release context
-      logs [-f] [-n N]  Show logs (journalctl)
-      details           Show running release info
-      version           Show running version
-      remove            Stop and remove release directories
-      releases          List release directories
-      stale_releases    List old (prunable) releases
-      maintenance       Enable maintenance mode (503 responses)
-      live              Disable maintenance mode (restore traffic)
-    """)
   end
 
   # Private

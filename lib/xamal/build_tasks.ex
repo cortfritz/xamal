@@ -1,4 +1,4 @@
-defmodule Xamal.Build do
+defmodule Xamal.BuildTasks do
   @moduledoc """
   Release build and distribution task implementations.
   """
@@ -9,16 +9,6 @@ defmodule Xamal.Build do
   alias Xamal.{Commander, Configuration, SSH}
   alias Xamal.Commands.{Base, Builder}
   alias Xamal.Configuration.Builder, as: BuildConfig
-
-  def run(subcommand, args, opts) do
-    case subcommand do
-      "deliver" -> deliver(args, opts)
-      "push" -> push(args, opts)
-      "pull" -> pull(args, opts)
-      "details" -> details(args, opts)
-      other -> say("Unknown build command: #{other}", :red)
-    end
-  end
 
   def deliver(_args, opts) do
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
@@ -159,18 +149,6 @@ defmodule Xamal.Build do
     IO.puts("  Version: #{config.version}")
     IO.puts("  Builder: #{builder_type(config.builder)}")
     IO.puts("  Tarball: #{Builder.tarball_path(config)}")
-  end
-
-  def help do
-    IO.puts("""
-    Use `mix help | grep xamal.build` to list build tasks.
-
-    Commands:
-      deliver    Build release locally and distribute to servers
-      push       Build release locally
-      pull       Upload tarball to servers
-      details    Show build configuration
-    """)
   end
 
   defp builder_type(builder) do

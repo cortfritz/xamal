@@ -1,4 +1,4 @@
-defmodule Xamal.Lock do
+defmodule Xamal.LockTasks do
   @moduledoc """
   Deploy lock task implementations.
   """
@@ -8,15 +8,7 @@ defmodule Xamal.Lock do
 
   alias Xamal.Commander
   alias Xamal.Commands.Lock, as: LockCommand
-
-  def run(subcommand, args, opts) do
-    case subcommand do
-      "status" -> status(args, opts)
-      "acquire" -> acquire(args, opts)
-      "release" -> release(args, opts)
-      other -> say("Unknown lock command: #{other}", :red)
-    end
-  end
+  alias Xamal.LocalIdentity
 
   def status(_args, _opts) do
     config = Commander.config()
@@ -46,7 +38,15 @@ defmodule Xamal.Lock do
       end
 
     on_primary(LockCommand.ensure_locks_directory(config))
-    cmd = LockCommand.acquire(config, message, config.version)
+
+    cmd =
+      LockCommand.acquire(
+        config,
+        message,
+        config.version,
+        LocalIdentity.git_user_name(),
+        DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
     case on_primary(cmd) do
       {:ok, _} -> say("Deploy lock acquired", :green)
@@ -65,16 +65,5 @@ defmodule Xamal.Lock do
       {:error, reason} ->
         say("Failed to release lock: #{inspect(reason)}", :red)
     end
-  end
-
-  def help do
-    IO.puts("""
-    Use `mix help | grep xamal.lock` to list lock tasks.
-
-    Commands:
-      status              Check if the deploy lock is held
-      acquire [-m MSG]    Manually acquire the deploy lock
-      release             Release the deploy lock
-    """)
   end
 end

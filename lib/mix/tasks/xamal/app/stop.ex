@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Xamal.App.Stop do
   @moduledoc "Stops application services."
   @shortdoc "Stops app"
-  use Xamal.MixTask, run: &Xamal.App.stop/2
+  use Xamal.MixTask, run: &Xamal.AppTasks.stop/2
 end

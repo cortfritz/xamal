@@ -5,15 +5,6 @@ defmodule Xamal.SecretTasks do
 
   import Xamal.Output
 
-  def run(subcommand, args, opts) do
-    case subcommand do
-      "fetch" -> fetch(args, opts)
-      "extract" -> extract(args, opts)
-      "print" -> print_secrets(args, opts)
-      other -> say("Unknown secrets command: #{other}", :red)
-    end
-  end
-
   @adapters %{
     "doppler" => &__MODULE__.fetch_doppler/1,
     "1password" => &__MODULE__.fetch_1password/1,
@@ -61,27 +52,6 @@ defmodule Xamal.SecretTasks do
     Enum.each(secrets, fn {key, value} ->
       IO.puts("#{key}=#{Xamal.Utils.maybe_redact(key, value)}")
     end)
-  end
-
-  def help do
-    IO.puts("""
-    Use `mix help | grep xamal.secrets` to list secrets tasks.
-
-    Commands:
-      fetch ADAPTER   Fetch secrets from external adapter
-      extract KEY     Extract a single secret value
-      print           Print all secrets (sensitive values redacted)
-
-    Adapters:
-      1password                  1Password (op CLI)
-      aws_secrets_manager        AWS Secrets Manager (aws CLI)
-      bitwarden                  Bitwarden (bw CLI)
-      bitwarden_secrets_manager  Bitwarden Secrets Manager (bws CLI)
-      doppler                    Doppler (doppler CLI)
-      gcp_secret_manager         Google Cloud Secret Manager (gcloud CLI)
-      last_pass                  LastPass (lpass CLI)
-      passbolt                   Passbolt (passbolt CLI)
-    """)
   end
 
   def fetch_doppler(args) do

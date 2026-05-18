@@ -8,10 +8,10 @@ defmodule Xamal.Commands.Lock do
   @doc """
   Acquire the deploy lock. mkdir is atomic - fails if dir exists.
   """
-  def acquire(config, message, version) do
+  def acquire(config, message, version, locked_by, locked_at) do
     combine([
       ["mkdir", lock_dir(config)],
-      write_lock_details(config, message, version)
+      write_lock_details(config, message, version, locked_by, locked_at)
     ])
   end
 
@@ -39,8 +39,8 @@ defmodule Xamal.Commands.Lock do
     make_directory(Xamal.Configuration.run_directory())
   end
 
-  defp write_lock_details(config, message, version) do
-    details = lock_details(message, version)
+  defp write_lock_details(config, message, version, locked_by, locked_at) do
+    details = lock_details(message, version, locked_by, locked_at)
     encoded = Base.encode64(details)
 
     write([
@@ -64,21 +64,11 @@ defmodule Xamal.Commands.Lock do
     "#{lock_dir(config)}/details"
   end
 
-  defp lock_details(message, version) do
-    locked_by = git_user_name()
-    time = DateTime.utc_now() |> DateTime.to_iso8601()
-
+  defp lock_details(message, version, locked_by, locked_at) do
     """
-    Locked by: #{locked_by} at #{time}
+    Locked by: #{locked_by} at #{locked_at}
     Version: #{version}
     Message: #{message}\
     """
-  end
-
-  defp git_user_name do
-    case System.cmd("git", ["config", "user.name"], stderr_to_stdout: true) do
-      {name, 0} -> String.trim(name)
-      _ -> "Unknown"
-    end
   end
 end

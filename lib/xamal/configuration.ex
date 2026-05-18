@@ -8,8 +8,17 @@ defmodule Xamal.Configuration do
 
   defstruct [
     :raw_config,
+    :service,
     :destination,
     :version,
+    :hooks_path,
+    :secrets_path,
+    :readiness_delay,
+    :deploy_timeout,
+    :drain_timeout,
+    :retain_releases,
+    :require_destination,
+    :primary_role_name,
     :secrets,
     :servers,
     :roles,
@@ -72,8 +81,17 @@ defmodule Xamal.Configuration do
 
     config = %__MODULE__{
       raw_config: raw_config,
+      service: Map.fetch!(raw_config, "service"),
       destination: destination,
       version: version || version_from_config(raw_config),
+      hooks_path: Map.get(raw_config, "hooks_path", ".xamal/hooks"),
+      secrets_path: Map.get(raw_config, "secrets_path", ".xamal/secrets"),
+      readiness_delay: Map.get(raw_config, "readiness_delay", 7),
+      deploy_timeout: Map.get(raw_config, "deploy_timeout", 30),
+      drain_timeout: Map.get(raw_config, "drain_timeout", 30),
+      retain_releases: Map.get(raw_config, "retain_releases", 5),
+      require_destination: Map.get(raw_config, "require_destination", false),
+      primary_role_name: Map.get(raw_config, "primary_role", "web"),
       secrets: secrets,
       servers: server_config,
       roles: roles,
@@ -92,23 +110,50 @@ defmodule Xamal.Configuration do
 
   # Accessors
 
+  def service(%__MODULE__{service: service}) when is_binary(service), do: service
   def service(%__MODULE__{raw_config: raw}), do: Map.fetch!(raw, "service")
 
+  def hooks_path(%__MODULE__{hooks_path: hooks_path}) when is_binary(hooks_path), do: hooks_path
   def hooks_path(%__MODULE__{raw_config: raw}), do: Map.get(raw, "hooks_path", ".xamal/hooks")
+
+  def secrets_path(%__MODULE__{secrets_path: secrets_path}) when is_binary(secrets_path),
+    do: secrets_path
 
   def secrets_path(%__MODULE__{raw_config: raw}),
     do: Map.get(raw, "secrets_path", ".xamal/secrets")
 
+  def readiness_delay(%__MODULE__{readiness_delay: readiness_delay})
+      when is_integer(readiness_delay),
+      do: readiness_delay
+
   def readiness_delay(%__MODULE__{raw_config: raw}), do: Map.get(raw, "readiness_delay", 7)
+
+  def deploy_timeout(%__MODULE__{deploy_timeout: deploy_timeout}) when is_integer(deploy_timeout),
+    do: deploy_timeout
 
   def deploy_timeout(%__MODULE__{raw_config: raw}), do: Map.get(raw, "deploy_timeout", 30)
 
+  def drain_timeout(%__MODULE__{drain_timeout: drain_timeout}) when is_integer(drain_timeout),
+    do: drain_timeout
+
   def drain_timeout(%__MODULE__{raw_config: raw}), do: Map.get(raw, "drain_timeout", 30)
+
+  def retain_releases(%__MODULE__{retain_releases: retain_releases})
+      when is_integer(retain_releases),
+      do: retain_releases
 
   def retain_releases(%__MODULE__{raw_config: raw}), do: Map.get(raw, "retain_releases", 5)
 
+  def require_destination?(%__MODULE__{require_destination: require_destination})
+      when is_boolean(require_destination),
+      do: require_destination
+
   def require_destination?(%__MODULE__{raw_config: raw}),
     do: Map.get(raw, "require_destination", false)
+
+  def primary_role_name(%__MODULE__{primary_role_name: primary_role_name})
+      when is_binary(primary_role_name),
+      do: primary_role_name
 
   def primary_role_name(%__MODULE__{raw_config: raw}), do: Map.get(raw, "primary_role", "web")
 

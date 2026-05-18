@@ -3,10 +3,10 @@
     mix_tasks: "Mix.Tasks.Xamal.*",
     orchestration: [
       "Xamal.Deployment",
-      "Xamal.App",
-      "Xamal.Build",
-      "Xamal.Server",
-      "Xamal.Lock",
+      "Xamal.AppTasks",
+      "Xamal.BuildTasks",
+      "Xamal.ServerTasks",
+      "Xamal.LockTasks",
       "Xamal.Prune",
       "Xamal.SecretTasks",
       "Xamal.Audit",
@@ -21,7 +21,6 @@
       "Xamal.Logs",
       "Xamal.Output",
       "Xamal.Remote",
-      "Xamal.Shell",
       "Xamal.TaskHelpers"
     ],
     commands: "Xamal.Commands.*",
@@ -46,8 +45,8 @@
     ]
   ],
   source: [
-    forbidden_modules: ["Xamal.CLI", "Xamal.CLI.*"],
-    forbidden_files: ["lib/xamal/cli/**"]
+    forbidden_modules: ["Xamal.CLI", "Xamal.CLI.*", "Xamal.Shell"],
+    forbidden_files: ["lib/xamal/cli/**", "lib/xamal/shell.ex"]
   ],
   calls: [
     forbidden: [

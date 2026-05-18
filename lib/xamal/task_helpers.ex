@@ -6,9 +6,9 @@ defmodule Xamal.TaskHelpers do
   def ensure_clean_git!(opts) do
     unless Keyword.get(opts, :skip_dirty_check, false) do
       if Xamal.Utils.git_dirty?() do
-        say("Deploy aborted: uncommitted changes detected.", :red)
-        say("Commit your changes or use --skip-dirty-check to deploy anyway.", :yellow)
-        System.halt(1)
+        Mix.raise(
+          "Deploy aborted: uncommitted changes detected. Commit your changes or use --skip-dirty-check to deploy anyway."
+        )
       end
     end
   end

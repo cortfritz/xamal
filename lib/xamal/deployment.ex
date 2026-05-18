@@ -9,7 +9,7 @@ defmodule Xamal.Deployment do
   import Xamal.Remote
   import Xamal.TaskHelpers
 
-  alias Xamal.{App, Build, Commander, Prune, Server}
+  alias Xamal.{AppTasks, BuildTasks, Commander, Prune, ServerTasks}
   alias Xamal.Commands.App, as: AppCommand
 
   def setup(opts) do
@@ -20,7 +20,7 @@ defmodule Xamal.Deployment do
         record_audit("Setup started")
 
         say("Bootstrapping servers...", :magenta)
-        Server.run("bootstrap", [], opts)
+        ServerTasks.bootstrap([], opts)
 
         do_deploy(opts)
 
@@ -56,7 +56,7 @@ defmodule Xamal.Deployment do
           run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
 
           say("Booting app...", :magenta)
-          App.run("boot", [], opts)
+          AppTasks.boot([], opts)
         end)
       end)
 
@@ -82,7 +82,10 @@ defmodule Xamal.Deployment do
       nil ->
         IO.puts(:stderr, "No previous version found to roll back to.")
         IO.puts(:stderr, "Usage: mix xamal.rollback [VERSION]")
-        System.halt(1)
+
+        Mix.raise(
+          "No previous version found to roll back to. Usage: mix xamal.rollback [VERSION]"
+        )
 
       previous ->
         say("Auto-detected previous version: #{previous}", :magenta)
@@ -97,7 +100,7 @@ defmodule Xamal.Deployment do
       run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
 
       say("Booting app on servers...", :magenta)
-      App.run("boot", [], opts)
+      AppTasks.boot([], opts)
 
       say("Pruning old releases...", :magenta)
       Prune.prune([], opts)
@@ -147,10 +150,10 @@ defmodule Xamal.Deployment do
   defp distribute_release(opts) do
     if Keyword.get(opts, :skip_push, false) do
       say("Distributing release to servers...", :magenta)
-      Build.run("pull", [], opts)
+      BuildTasks.pull([], opts)
     else
       say("Building and distributing release...", :magenta)
-      Build.run("deliver", [], opts)
+      BuildTasks.deliver([], opts)
     end
   end
 end

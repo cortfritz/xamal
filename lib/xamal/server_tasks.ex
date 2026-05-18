@@ -1,4 +1,4 @@
-defmodule Xamal.Server do
+defmodule Xamal.ServerTasks do
   @moduledoc """
   Server task implementations.
   """
@@ -8,15 +8,6 @@ defmodule Xamal.Server do
 
   alias Xamal.{Commander, SSH}
   alias Xamal.Commands.{Caddy, Server, Systemd}
-
-  def run(subcommand, args, opts) do
-    case subcommand do
-      "exec" -> exec(args, opts)
-      "bootstrap" -> bootstrap(args, opts)
-      "logs" -> logs(args, opts)
-      other -> say("Unknown server command: #{other}", :red)
-    end
-  end
 
   def exec(args, _opts) do
     command = Enum.join(args, " ")
@@ -85,16 +76,5 @@ defmodule Xamal.Server do
     log_opts = parse_log_opts(args)
 
     dispatch_logs(log_opts, &Caddy.logs/1, config, type: "Server")
-  end
-
-  def help do
-    IO.puts("""
-    Use `mix help | grep xamal.server` to list server tasks.
-
-    Commands:
-      exec CMD          Run arbitrary command via SSH on all servers
-      bootstrap         Install Caddy and setup directories
-      logs [-f] [-n N]  Show Caddy proxy logs (journalctl)
-    """)
   end
 end

@@ -49,30 +49,23 @@ defmodule Xamal.Commands.HookTest do
       assert env["XAMAL_ROLE"] == ""
     end
 
-    test "includes XAMAL_RECORDED_AT as ISO 8601 timestamp" do
-      env = Hook.env(@config)
+    test "includes provided runtime attributes" do
+      env =
+        Hook.env(@config, %{}, %{
+          recorded_at: "2026-01-01T00:00:00Z",
+          performer: "Test User",
+          lock_status: "true"
+        })
 
-      assert env["XAMAL_RECORDED_AT"] =~ ~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
-    end
-
-    test "includes XAMAL_PERFORMER" do
-      env = Hook.env(@config)
-
-      # Should be non-empty (git user or whoami fallback)
-      assert is_binary(env["XAMAL_PERFORMER"])
-      assert env["XAMAL_PERFORMER"] != ""
+      assert env["XAMAL_RECORDED_AT"] == "2026-01-01T00:00:00Z"
+      assert env["XAMAL_PERFORMER"] == "Test User"
+      assert env["XAMAL_LOCK"] == "true"
     end
 
     test "includes XAMAL_SERVICE_VERSION in service@version format" do
       env = Hook.env(@config)
 
       assert env["XAMAL_SERVICE_VERSION"] == "my-app@abc1234"
-    end
-
-    test "includes XAMAL_LOCK status" do
-      env = Hook.env(@config)
-
-      assert env["XAMAL_LOCK"] in ["true", "false"]
     end
   end
 

@@ -15,7 +15,7 @@ defmodule Xamal.Commands.Hook do
   @doc """
   Build environment variables to pass to hook scripts.
   """
-  def env(config, details \\ %{}) do
+  def env(config, details \\ %{}, attrs \\ %{}) do
     service = Xamal.Configuration.service(config)
     version = config.version || ""
 
@@ -27,10 +27,10 @@ defmodule Xamal.Commands.Hook do
       "XAMAL_SUBCOMMAND" => Map.get(details, :subcommand, ""),
       "XAMAL_DESTINATION" => config.destination || "",
       "XAMAL_ROLE" => Map.get(details, :role, ""),
-      "XAMAL_RECORDED_AT" => DateTime.utc_now() |> DateTime.to_iso8601(),
-      "XAMAL_PERFORMER" => performer(),
+      "XAMAL_RECORDED_AT" => Map.get(attrs, :recorded_at, ""),
+      "XAMAL_PERFORMER" => Map.get(attrs, :performer, ""),
       "XAMAL_SERVICE_VERSION" => "#{service}@#{version}",
-      "XAMAL_LOCK" => lock_status()
+      "XAMAL_LOCK" => Map.get(attrs, :lock_status, "false")
     }
 
     Map.merge(base, Map.get(details, :extra_env, %{}))
@@ -45,29 +45,5 @@ defmodule Xamal.Commands.Hook do
 
   defp hook_file(config, hook_name) do
     Path.join(Xamal.Configuration.hooks_path(config), hook_name)
-  end
-
-  defp performer do
-    case System.cmd("git", ["config", "user.name"], stderr_to_stdout: true) do
-      {name, 0} ->
-        name = String.trim(name)
-
-        case System.cmd("git", ["config", "user.email"], stderr_to_stdout: true) do
-          {email, 0} -> "#{name} <#{String.trim(email)}>"
-          _ -> name
-        end
-
-      _ ->
-        case System.cmd("whoami", [], stderr_to_stdout: true) do
-          {user, 0} -> String.trim(user)
-          _ -> ""
-        end
-    end
-  end
-
-  defp lock_status do
-    if Xamal.Commander.holding_lock?(), do: "true", else: "false"
-  rescue
-    _ -> "false"
   end
 end
