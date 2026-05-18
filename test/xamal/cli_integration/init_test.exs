@@ -9,6 +9,7 @@ defmodule Xamal.MixTaskIntegration.InitTest do
   end
 
   test "creates config files with expected content and executable hooks", %{dir: dir} do
+    setup_mix_project(dir)
     {_output, 0} = xamal(["init"], dir)
 
     assert File.exists?(Path.join(dir, "config/xamal.exs"))
@@ -34,6 +35,7 @@ defmodule Xamal.MixTaskIntegration.InitTest do
   end
 
   test "does not overwrite existing config", %{dir: dir} do
+    setup_mix_project(dir)
     setup_config(dir)
     {_output, 0} = xamal(["init"], dir)
 

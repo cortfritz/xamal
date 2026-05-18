@@ -16,32 +16,28 @@ defmodule Xamal.Init do
   )
 
   def run(opts \\ []) do
-    if Code.ensure_loaded?(Mix) and File.exists?("mix.exs") do
-      Application.ensure_all_started(:rewrite)
+    Application.ensure_all_started(:rewrite)
 
-      result =
-        Igniter.new()
-        |> add_config()
-        |> add_secrets()
-        |> add_hooks()
-        |> add_gitignore_entries()
-        |> add_release_config()
-        |> add_mix_aliases()
-        |> add_health_route_notice()
-        |> Igniter.do_or_dry_run(
-          yes: Keyword.get(opts, :yes, true),
-          dry_run: Keyword.get(opts, :dry_run, false),
-          title: "mix xamal.init"
-        )
+    result =
+      Igniter.new()
+      |> add_config()
+      |> add_secrets()
+      |> add_hooks()
+      |> add_gitignore_entries()
+      |> add_release_config()
+      |> add_mix_aliases()
+      |> add_health_route_notice()
+      |> Igniter.do_or_dry_run(
+        yes: Keyword.get(opts, :yes, true),
+        dry_run: Keyword.get(opts, :dry_run, false),
+        title: "mix xamal.init"
+      )
 
-      unless Keyword.get(opts, :dry_run, false) do
-        make_hooks_executable()
-      end
-
-      result
-    else
-      write_files()
+    unless Keyword.get(opts, :dry_run, false) do
+      make_hooks_executable()
     end
+
+    result
   end
 
   def add_config(igniter) do
@@ -128,11 +124,7 @@ defmodule Xamal.Init do
   end
 
   defp project_app do
-    if Code.ensure_loaded?(Mix.Project) and Mix.Project.get() do
-      Mix.Project.config() |> Keyword.fetch!(:app)
-    else
-      :my_app
-    end
+    Mix.Project.config() |> Keyword.fetch!(:app)
   end
 
   defp phoenix_project? do
@@ -205,33 +197,5 @@ defmodule Xamal.Init do
       path = Path.join([".xamal", "hooks", hook])
       if File.exists?(path), do: File.chmod!(path, 0o755)
     end)
-  end
-
-  defp write_files do
-    write_file(
-      "config/xamal.exs",
-      config_template(project_app()),
-      "Created configuration file in config/xamal.exs"
-    )
-
-    write_file(".xamal/secrets", secrets_template(), "Created .xamal/secrets file")
-
-    Enum.each(@hooks, fn hook ->
-      path = Path.join([".xamal", "hooks", hook])
-      write_file(path, hook_template(hook), nil)
-      File.chmod!(path, 0o755)
-    end)
-
-    IO.puts("Created sample hooks in .xamal/hooks")
-  end
-
-  defp write_file(path, content, message) do
-    if File.exists?(path) do
-      IO.puts("#{path} already exists")
-    else
-      path |> Path.dirname() |> File.mkdir_p!()
-      File.write!(path, content)
-      if message, do: IO.puts(message)
-    end
   end
 end

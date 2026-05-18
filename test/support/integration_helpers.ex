@@ -61,6 +61,23 @@ defmodule Xamal.IntegrationHelpers do
     File.write!(Path.join(dir, ".xamal/secrets"), @secrets_file)
   end
 
+  def setup_mix_project(dir) do
+    File.write!(Path.join(dir, "mix.exs"), """
+    defmodule Sample.MixProject do
+      use Mix.Project
+
+      def project do
+        [
+          app: :sample,
+          version: "0.1.0",
+          elixir: "~> 1.15",
+          deps: []
+        ]
+      end
+    end
+    """)
+  end
+
   def setup_git_repo(dir) do
     System.cmd(
       "sh",
