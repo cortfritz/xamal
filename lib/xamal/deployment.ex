@@ -77,7 +77,7 @@ defmodule Xamal.Deployment do
     case previous_version(Commander.config()) do
       nil ->
         IO.puts(:stderr, "No previous version found to roll back to.")
-        IO.puts(:stderr, "Usage: xamal rollback [VERSION]")
+        IO.puts(:stderr, "Usage: mix xamal.rollback [VERSION]")
         System.halt(1)
 
       previous ->

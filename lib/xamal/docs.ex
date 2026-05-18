@@ -1,4 +1,4 @@
-defmodule Xamal.CLI.Docs do
+defmodule Xamal.Docs do
   @moduledoc """
   Inline configuration documentation viewer.
   """
@@ -14,7 +14,7 @@ defmodule Xamal.CLI.Docs do
     IO.puts("""
     Xamal Configuration Reference
 
-    Usage: mix xamal docs <topic>
+    Usage: mix xamal.docs <topic>
 
     Topics:
       config          config/xamal.exs overview and structure
@@ -102,7 +102,7 @@ defmodule Xamal.CLI.Docs do
             region: us-east
 
     The primary role (default: "web") is used for lock management and
-    single-host operations like `xamal app exec`.
+    single-host operations like `mix xamal.app.exec`.
     """)
   end
 
@@ -145,8 +145,8 @@ defmodule Xamal.CLI.Docs do
 
     ## Maintenance mode
 
-      xamal app maintenance    # Serve 503 responses
-      xamal app live           # Restore normal traffic
+      mix xamal.app.maintenance    # Serve 503 responses
+      mix xamal.app.live           # Restore normal traffic
     """)
   end
 
@@ -303,18 +303,18 @@ defmodule Xamal.CLI.Docs do
 
     ## Fetching from external sources
 
-      xamal secrets fetch 1password <vault> <item> <field>
-      xamal secrets fetch aws_secrets_manager [--from PREFIX] SECRET
-      xamal secrets fetch bitwarden --account EMAIL ITEM
-      xamal secrets fetch doppler <project> <config>
-      xamal secrets fetch gcp_secret_manager [--account USER] SECRET
-      xamal secrets fetch last_pass --account EMAIL SECRET
-      xamal secrets fetch passbolt [--from FOLDER] SECRET
+      mix xamal.secrets.fetch 1password <vault> <item> <field>
+      mix xamal.secrets.fetch aws_secrets_manager [--from PREFIX] SECRET
+      mix xamal.secrets.fetch bitwarden --account EMAIL ITEM
+      mix xamal.secrets.fetch doppler <project> <config>
+      mix xamal.secrets.fetch gcp_secret_manager [--account USER] SECRET
+      mix xamal.secrets.fetch last_pass --account EMAIL SECRET
+      mix xamal.secrets.fetch passbolt [--from FOLDER] SECRET
 
     ## Viewing secrets
 
-      xamal secrets print       # Show all (values redacted)
-      xamal secrets extract KEY  # Show single value (unredacted)
+      mix xamal.secrets.print       # Show all (values redacted)
+      mix xamal.secrets.extract KEY  # Show single value (unredacted)
     """)
   end
 
@@ -366,8 +366,8 @@ defmodule Xamal.CLI.Docs do
 
     ## Usage
 
-      xamal console       # Runs: xamal app exec -i "bin/my_app remote"
-      xamal logs           # Runs: xamal app logs -f
+      mix xamal.console       # Runs: mix xamal.app.exec -i "bin/my_app remote"
+      mix xamal.app.logs           # Runs: mix xamal.app.logs -f
       xamal info           # Runs: xamal config
     """)
   end

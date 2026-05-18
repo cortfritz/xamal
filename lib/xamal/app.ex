@@ -207,7 +207,7 @@ defmodule Xamal.App do
 
   def help do
     IO.puts("""
-    Usage: xamal app <command>
+    Use `mix help | grep xamal.app` to list app tasks.
 
     Commands:
       boot              Start app (or restart with zero-downtime)

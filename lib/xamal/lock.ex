@@ -65,7 +65,7 @@ defmodule Xamal.Lock do
 
   def help do
     IO.puts("""
-    Usage: xamal lock <command>
+    Use `mix help | grep xamal.lock` to list lock tasks.
 
     Commands:
       status              Check if the deploy lock is held

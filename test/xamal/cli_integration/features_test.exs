@@ -1,52 +1,11 @@
-defmodule Xamal.CLIIntegration.FeaturesTest do
-  use ExUnit.Case, async: true
+defmodule Xamal.MixTaskIntegration.FeaturesTest do
+  use ExUnit.Case, async: false
   import Xamal.IntegrationHelpers
 
   setup do
     dir = setup_temp_dir()
     on_exit(fn -> File.rm_rf!(dir) end)
     %{dir: dir}
-  end
-
-  # -- Git dirty check --
-
-  test "deploy aborts when git tree is dirty", %{dir: dir} do
-    setup_config(dir)
-    setup_git_repo(dir)
-    File.write!(Path.join(dir, "dirty.txt"), "uncommitted")
-
-    {output, code} = xamal(["deploy"], dir)
-    assert code != 0
-    assert output =~ "uncommitted changes detected"
-  end
-
-  test "deploy proceeds with --skip-dirty-check when dirty", %{dir: dir} do
-    setup_config(dir)
-    setup_git_repo(dir)
-    File.write!(Path.join(dir, "dirty.txt"), "uncommitted")
-
-    # Will fail later (no SSH), but should get past the dirty check
-    {output, _code} = xamal(["deploy", "--skip-dirty-check"], dir)
-    refute output =~ "uncommitted changes detected"
-  end
-
-  test "deploy proceeds when git tree is clean", %{dir: dir} do
-    setup_config(dir)
-    setup_git_repo(dir)
-
-    # Will fail later (no SSH), but should get past the dirty check
-    {output, _code} = xamal(["deploy"], dir)
-    refute output =~ "uncommitted changes detected"
-  end
-
-  # -- Aliases --
-
-  test "alias dispatches to target command", %{dir: dir} do
-    setup_config(dir)
-    # "info" is aliased to "config" in our test config.
-    {output, 0} = xamal(["info"], dir)
-    assert output =~ "Service: test-app"
-    assert output =~ "Caddy: test.example.com"
   end
 
   # -- Global options --

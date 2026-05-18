@@ -1,4 +1,4 @@
-defmodule Xamal.CLI.Main do
+defmodule Xamal.Operations do
   @moduledoc """
   Main CLI commands: setup, deploy, redeploy, rollback, versions, details, audit, config, init, remove.
   """

@@ -120,7 +120,7 @@ defmodule Xamal.Build do
     tarball_path = Builder.tarball_path(config)
 
     unless File.exists?(tarball_path) do
-      raise "Tarball not found at #{tarball_path}. Run 'xamal build push' first."
+      raise "Tarball not found at #{tarball_path}. Run 'mix xamal.build.push' first."
     end
 
     Enum.each(hosts, fn host ->
@@ -162,7 +162,7 @@ defmodule Xamal.Build do
 
   def help do
     IO.puts("""
-    Usage: xamal build <command>
+    Use `mix help | grep xamal.build` to list build tasks.
 
     Commands:
       deliver    Build release locally and distribute to servers

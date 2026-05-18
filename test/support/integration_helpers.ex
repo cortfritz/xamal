@@ -80,9 +80,25 @@ defmodule Xamal.IntegrationHelpers do
   end
 
   def xamal(args, dir) do
-    System.cmd("timeout", ["2", Path.expand("xamal")] ++ args, cd: dir, stderr_to_stdout: true)
+    output =
+      ExUnit.CaptureIO.capture_io(fn ->
+        File.cd!(dir, fn -> run_mix_task(args) end)
+      end)
+
+    {output, 0}
+  rescue
+    error in Mix.Error -> {Exception.message(error), 1}
   end
 
-  def deploy_yml, do: @xamal_config
+  defp run_mix_task(["config" | args]), do: Mix.Task.rerun("xamal.config", args)
+  defp run_mix_task(["init" | args]), do: Mix.Task.rerun("xamal.init", args)
+  defp run_mix_task(["docs" | args]), do: Mix.Task.rerun("xamal.docs", args)
+  defp run_mix_task(["build", "details" | args]), do: Mix.Task.rerun("xamal.build.details", args)
+  defp run_mix_task(["secrets", "print" | args]), do: Mix.Task.rerun("xamal.secrets.print", args)
+
+  defp run_mix_task([task | _args]),
+    do: Mix.raise("Unknown Mix task mapping for #{inspect(task)}")
+
+  def deploy_config, do: @xamal_config
   def secrets_file, do: @secrets_file
 end

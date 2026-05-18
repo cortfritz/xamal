@@ -1,4 +1,4 @@
-defmodule Xamal.CLI.Secrets do
+defmodule Xamal.SecretCommands do
   @moduledoc """
   CLI commands for managing secrets.
   """
@@ -54,7 +54,7 @@ defmodule Xamal.CLI.Secrets do
         end
 
       [] ->
-        say("Usage: xamal secrets fetch <adapter> [options]", :red)
+        say("Usage: mix xamal.secrets.fetch <adapter> [options]", :red)
     end
   end
 
@@ -67,7 +67,7 @@ defmodule Xamal.CLI.Secrets do
         IO.puts(value)
 
       [] ->
-        say("Usage: xamal secrets extract <KEY>", :red)
+        say("Usage: mix xamal.secrets.extract <KEY>", :red)
     end
   end
 
@@ -82,7 +82,7 @@ defmodule Xamal.CLI.Secrets do
 
   def help do
     IO.puts("""
-    Usage: xamal secrets <command>
+    Use `mix help | grep xamal.secrets` to list secrets tasks.
 
     Commands:
       fetch ADAPTER   Fetch secrets from external adapter
@@ -124,7 +124,7 @@ defmodule Xamal.CLI.Secrets do
         end
 
       _ ->
-        say("Usage: xamal secrets fetch 1password <vault> <item> <field>", :red)
+        say("Usage: mix xamal.secrets.fetch 1password <vault> <item> <field>", :red)
     end
   end
 
@@ -137,7 +137,7 @@ defmodule Xamal.CLI.Secrets do
 
     if secret_ids == [] do
       say(
-        "Usage: xamal secrets fetch aws_secrets_manager [--from PREFIX] [--profile PROFILE] SECRET...",
+        "Usage: mix xamal.secrets.fetch aws_secrets_manager [--from PREFIX] [--profile PROFILE] SECRET...",
         :red
       )
     else
@@ -160,7 +160,7 @@ defmodule Xamal.CLI.Secrets do
     account = Keyword.get(opts, :account)
 
     if account == nil do
-      say("Usage: xamal secrets fetch bitwarden --account EMAIL ITEM [ITEM/FIELD]...", :red)
+      say("Usage: mix xamal.secrets.fetch bitwarden --account EMAIL ITEM [ITEM/FIELD]...", :red)
     else
       # Login and get session
       case System.cmd("bw", ["login", "--check"], stderr_to_stdout: true) do
@@ -199,7 +199,7 @@ defmodule Xamal.CLI.Secrets do
 
     if secrets == [] and project == nil do
       say(
-        "Usage: xamal secrets fetch bitwarden_secrets_manager [--from PROJECT] SECRET_UUID...",
+        "Usage: mix xamal.secrets.fetch bitwarden_secrets_manager [--from PROJECT] SECRET_UUID...",
         :red
       )
     else
@@ -219,7 +219,7 @@ defmodule Xamal.CLI.Secrets do
 
     if secrets == [] do
       say(
-        "Usage: xamal secrets fetch gcp_secret_manager [--account USER] [--from PROJECT] SECRET...",
+        "Usage: mix xamal.secrets.fetch gcp_secret_manager [--account USER] [--from PROJECT] SECRET...",
         :red
       )
     else
@@ -253,7 +253,7 @@ defmodule Xamal.CLI.Secrets do
     account = Keyword.get(opts, :account)
 
     if account == nil do
-      say("Usage: xamal secrets fetch last_pass --account EMAIL SECRET...", :red)
+      say("Usage: mix xamal.secrets.fetch last_pass --account EMAIL SECRET...", :red)
     else
       # Verify logged in
       case System.cmd("lpass", ["status", "--quiet"], stderr_to_stdout: true) do
@@ -281,7 +281,7 @@ defmodule Xamal.CLI.Secrets do
     folder = Keyword.get(opts, :from)
 
     if secrets == [] do
-      say("Usage: xamal secrets fetch passbolt [--from FOLDER] SECRET...", :red)
+      say("Usage: mix xamal.secrets.fetch passbolt [--from FOLDER] SECRET...", :red)
     else
       filter_args = if folder, do: ["--filter", "folder=#{folder}"], else: []
 

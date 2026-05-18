@@ -2,41 +2,38 @@
 
 ## Project
 
-Xamal is an Elixir escript CLI that deploys Elixir releases to bare metal servers via SSH. Port of Kamal (Ruby/Docker) but using native releases + Caddy instead of Docker + kamal-proxy.
+Xamal is a Mix-first Elixir deployment tool for bare-metal Elixir releases over SSH. It is inspired by Kamal, but uses native releases, Caddy, and Elixir configuration instead of Docker, kamal-proxy, and YAML.
 
 ## Stack
 
 - Elixir 1.15+, OTP 26+
-- Escript binary (`mix escript.build` → `./xamal`)
-- YAML config with EEx templating (`config/deploy.yml`)
+- Mix tasks (`mix xamal.*`) are the public command surface
+- Elixir config via `config/xamal.exs`
+- Destination overrides live under `config/xamal/<destination>.exs`
 - SSH via Erlang `:ssh` stdlib
 - Tests: `mix test` (ExUnit)
+- Quality checks: `mix ci`
 
 ## Architecture
 
-- `lib/xamal/commands/` — Pure functions returning command lists (`["cmd", "arg1"]`), composed with `combine/pipe/chain`
-- `lib/xamal/cli/` — CLI dispatch layer, imports `Xamal.CLI.Base` for shared helpers (`say`, `run_hook`, `with_lock`, etc.)
-- `lib/xamal/configuration/` — Structs with `new/1` constructors parsing from maps
-- `lib/xamal/commander.ex` — Agent-based runtime state (config, lock, host/role filtering)
-- `test/xamal/cli_integration_test.exs` — E2E tests that invoke the compiled escript binary
-
-## Important: Rebuild escript before testing
-
-Integration tests run the installed escript binary, NOT the source code. After any code change, you MUST rebuild and reinstall before running tests:
-
-```
-mix escript.build && mix escript.install --force
-```
-
-Stale escript binaries cause tests to fail with confusing errors where the source looks correct but the runtime behavior is wrong.
+- `lib/mix/tasks/` — public Mix task entrypoints
+- `lib/xamal/deployment.ex` — high-level deploy/redeploy/setup/rollback orchestration
+- `lib/xamal/app.ex`, `build.ex`, `server.ex`, `lock.ex`, `prune.ex`, `secrets.ex`, `docs.ex` — command implementations used by Mix tasks
+- `lib/xamal/shell.ex` — shell/UI helpers, SSH execution helpers, hooks, lock handling, blue-green boot flow
+- `lib/xamal/commands/` — pure functions returning command lists (`["cmd", "arg1"]`), composed with `combine/pipe/chain`
+- `lib/xamal/configuration/` — structs with `new/1` constructors parsing Elixir config data
+- `lib/xamal/context.ex` — explicit runtime context for config, host/role filters, verbosity, lock, and connection state
+- `lib/xamal/commander.ex` — compatibility Agent wrapper around `Xamal.Context`
 
 ## Conventions
 
-- Commands modules return list-of-strings, never execute anything
-- CLI modules handle execution, output, and orchestration
-- Config structs are immutable; built once from YAML
-- Hooks run locally, not on remote servers
-- `mix test` must pass before committing
+- Prefer Mix tasks over custom CLI dispatch.
+- Do not add an escript entrypoint.
+- Do not introduce `Xamal.CLI.*` modules; command behavior belongs in `Xamal.*` modules or Mix tasks.
+- Command builder modules return list-of-strings and never execute anything.
+- Config structs are immutable and built from Elixir config.
+- Hooks run locally, not on remote servers.
+- Run `mix ci` before considering a change complete.
 
 ## Commit messages
 

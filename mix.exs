@@ -9,7 +9,6 @@ defmodule Xamal.MixProject do
       version: @version,
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
-      escript: [main_module: Xamal.CLI],
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       aliases: aliases(),

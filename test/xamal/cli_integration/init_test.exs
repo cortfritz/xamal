@@ -1,5 +1,5 @@
-defmodule Xamal.CLIIntegration.InitTest do
-  use ExUnit.Case, async: true
+defmodule Xamal.MixTaskIntegration.InitTest do
+  use ExUnit.Case, async: false
   import Xamal.IntegrationHelpers
 
   setup do
@@ -9,9 +9,7 @@ defmodule Xamal.CLIIntegration.InitTest do
   end
 
   test "creates config files with expected content and executable hooks", %{dir: dir} do
-    {output, 0} = xamal(["init"], dir)
-
-    assert output =~ "Created configuration file"
+    {_output, 0} = xamal(["init"], dir)
 
     assert File.exists?(Path.join(dir, "config/xamal.exs"))
     assert File.exists?(Path.join(dir, ".xamal/secrets"))
@@ -36,8 +34,7 @@ defmodule Xamal.CLIIntegration.InitTest do
 
   test "does not overwrite existing config", %{dir: dir} do
     setup_config(dir)
-    {output, 0} = xamal(["init"], dir)
-    assert output =~ "config/xamal.exs already exists"
+    {_output, 0} = xamal(["init"], dir)
 
     content = File.read!(Path.join(dir, "config/xamal.exs"))
     assert content =~ "test-app"

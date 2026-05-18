@@ -21,7 +21,7 @@ defmodule Xamal.Server do
     command = Enum.join(args, " ")
 
     if command == "" do
-      say("Usage: xamal server exec COMMAND", :red)
+      say("Usage: mix xamal.server.exec COMMAND", :red)
     else
       exec_on_hosts(command, Commander.config(), Commander.hosts())
     end
@@ -88,7 +88,7 @@ defmodule Xamal.Server do
 
   def help do
     IO.puts("""
-    Usage: xamal server <command>
+    Use `mix help | grep xamal.server` to list server tasks.
 
     Commands:
       exec CMD          Run arbitrary command via SSH on all servers
