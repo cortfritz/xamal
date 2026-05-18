@@ -1,9 +1,9 @@
-defmodule Xamal.CLI.Prune do
+defmodule Xamal.Prune do
   @moduledoc """
   CLI command for pruning old releases.
   """
 
-  import Xamal.CLI.Base
+  import Xamal.Shell
 
   def prune(_args, _opts) do
     config = Xamal.Commander.config()

@@ -3,7 +3,7 @@ defmodule Xamal.CLI.Secrets do
   CLI commands for managing secrets.
   """
 
-  import Xamal.CLI.Base
+  import Xamal.Shell
 
   def run(subcommand, args, opts) do
     case subcommand do

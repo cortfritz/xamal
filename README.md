@@ -168,7 +168,7 @@ mix xamal.deploy -d staging
 mix xamal.deploy -d production
 ```
 
-With override files like `config/xamal.staging.exs` and secrets in `.xamal/secrets.staging`.
+With override files like `config/xamal/staging.exs` and secrets in `.xamal/secrets.staging`.
 
 ## License
 

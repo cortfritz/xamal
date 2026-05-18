@@ -4,5 +4,7 @@ defmodule Mix.Tasks.Xamal.Server.Bootstrap do
   use Mix.Task
 
   @impl true
-  def run(args), do: Xamal.CLI.main(["server", "bootstrap" | args])
+  def run(args) do
+    Xamal.MixTask.run(args, &Xamal.Server.bootstrap/2)
+  end
 end

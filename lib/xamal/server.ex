@@ -1,9 +1,9 @@
-defmodule Xamal.CLI.Server do
+defmodule Xamal.Server do
   @moduledoc """
   CLI commands for server management.
   """
 
-  import Xamal.CLI.Base
+  import Xamal.Shell
 
   alias Xamal.{Commander, SSH}
   alias Xamal.Commands.{Caddy, Server, Systemd}

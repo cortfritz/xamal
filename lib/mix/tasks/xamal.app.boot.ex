@@ -4,5 +4,7 @@ defmodule Mix.Tasks.Xamal.App.Boot do
   use Mix.Task
 
   @impl true
-  def run(args), do: Xamal.CLI.main(["app", "boot" | args])
+  def run(args) do
+    Xamal.MixTask.run(args, &Xamal.App.boot/2)
+  end
 end

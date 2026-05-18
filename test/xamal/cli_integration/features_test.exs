@@ -75,7 +75,8 @@ defmodule Xamal.CLIIntegration.FeaturesTest do
       ]
     """
 
-    File.write!(Path.join(dir, "config/xamal.staging.exs"), staging_config)
+    File.mkdir_p!(Path.join(dir, "config/xamal"))
+    File.write!(Path.join(dir, "config/xamal/staging.exs"), staging_config)
 
     {output, 0} = xamal(["config", "-d", "staging"], dir)
     assert output =~ "Destination: staging"

@@ -4,5 +4,7 @@ defmodule Mix.Tasks.Xamal.App.Logs do
   use Mix.Task
 
   @impl true
-  def run(args), do: Xamal.CLI.main(["app", "logs" | args])
+  def run(args) do
+    Xamal.MixTask.run(args, &Xamal.App.logs/2)
+  end
 end

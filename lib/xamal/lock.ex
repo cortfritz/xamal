@@ -1,9 +1,9 @@
-defmodule Xamal.CLI.Lock do
+defmodule Xamal.Lock do
   @moduledoc """
   CLI commands for managing the deploy lock.
   """
 
-  import Xamal.CLI.Base
+  import Xamal.Shell
 
   def run(subcommand, args, opts) do
     case subcommand do

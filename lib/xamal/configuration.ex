@@ -182,13 +182,13 @@ defmodule Xamal.Configuration do
     base = load_config_file(config_file)
 
     if destination do
-      dest_file = destination_config_file(config_file, destination)
+      case destination_config_file(config_file, destination) do
+        nil ->
+          base
 
-      if File.exists?(dest_file) do
-        dest_config = load_config_file(dest_file)
-        deep_merge(base, dest_config)
-      else
-        base
+        dest_file ->
+          dest_config = load_config_file(dest_file)
+          deep_merge(base, dest_config)
       end
     else
       base
@@ -196,9 +196,21 @@ defmodule Xamal.Configuration do
   end
 
   defp destination_config_file(config_file, destination) do
-    root = Path.rootname(config_file)
+    config_file
+    |> destination_config_candidates(destination)
+    |> Enum.find(&File.exists?/1)
+  end
+
+  defp destination_config_candidates(config_file, destination) do
     ext = Path.extname(config_file)
-    "#{root}.#{destination}#{ext}"
+    root = Path.rootname(config_file)
+    dirname = Path.dirname(config_file)
+    basename = config_file |> Path.basename(ext) |> Path.rootname()
+
+    [
+      Path.join([dirname, basename, "#{destination}#{ext}"]),
+      "#{root}.#{destination}#{ext}"
+    ]
   end
 
   defp load_config_file(file) do

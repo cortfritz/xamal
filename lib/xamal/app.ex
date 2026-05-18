@@ -1,9 +1,9 @@
-defmodule Xamal.CLI.App do
+defmodule Xamal.App do
   @moduledoc """
   CLI commands for managing the application.
   """
 
-  import Xamal.CLI.Base
+  import Xamal.Shell
 
   alias Xamal.{Commander, Configuration, EnvFile, SSH}
   alias Xamal.Commands.App, as: AppCommand

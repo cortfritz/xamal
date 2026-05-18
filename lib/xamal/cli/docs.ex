@@ -326,8 +326,8 @@ defmodule Xamal.CLI.Docs do
     from the same config base.
 
       config/xamal.exs                Base configuration
-      config/xamal.staging.exs        Staging overrides
-      config/xamal.production.exs     Production overrides
+      config/xamal/staging.exs        Staging overrides
+      config/xamal/production.exs     Production overrides
 
     ## Usage
 
@@ -337,7 +337,7 @@ defmodule Xamal.CLI.Docs do
     Destination files are deep-merged over the base config. Only include
     keys you want to override:
 
-      # config/xamal.staging.exs
+      # config/xamal/staging.exs
       import Config
 
       config :xamal,

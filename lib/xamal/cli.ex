@@ -20,8 +20,8 @@ defmodule Xamal.CLI do
     help: :boolean
   ]
 
-  alias Xamal.CLI.{App, Build, Docs, Lock, Main, Prune, Secrets, Server}
-  alias Xamal.{Commander, Configuration}
+  alias Xamal.CLI.{Docs, Main, Secrets}
+  alias Xamal.{App, Build, CommandOptions, Commander, Configuration, Lock, Prune, Server}
 
   @global_aliases [
     v: :verbose,
@@ -241,60 +241,12 @@ defmodule Xamal.CLI do
       :ok
     else
       configure_commander(config)
-      configure_host_filter(global_opts)
-      configure_role_filter(global_opts)
-      configure_primary_filter(global_opts)
-      configure_verbosity(global_opts)
+      CommandOptions.apply_filters_and_verbosity(global_opts)
     end
   end
 
   defp configure_commander(nil), do: :ok
   defp configure_commander(config), do: Commander.configure(config)
-
-  defp configure_host_filter(global_opts) do
-    if Keyword.get(global_opts, :hosts) do
-      global_opts[:hosts]
-      |> String.split(",")
-      |> Commander.set_specific_hosts()
-    end
-  end
-
-  defp configure_role_filter(global_opts) do
-    if Keyword.get(global_opts, :roles) do
-      global_opts[:roles]
-      |> String.split(",")
-      |> Commander.set_specific_roles()
-    end
-  end
-
-  defp configure_primary_filter(global_opts) do
-    if Keyword.get(global_opts, :primary) do
-      Commander.config()
-      |> primary_host()
-      |> set_primary_host()
-    end
-  end
-
-  defp primary_host(nil), do: nil
-  defp primary_host(config), do: Configuration.primary_host(config)
-
-  defp set_primary_host(nil), do: :ok
-  defp set_primary_host(primary), do: Commander.set_specific_hosts([primary])
-
-  defp configure_verbosity(global_opts) do
-    cond do
-      Keyword.get(global_opts, :verbose) ->
-        Commander.set_verbosity(:debug)
-        Logger.configure(level: :debug)
-
-      Keyword.get(global_opts, :quiet) ->
-        Commander.set_verbosity(:error)
-        Logger.configure(level: :error)
-
-      true ->
-        :ok
-    end
-  end
 
   defp print_version do
     IO.puts("Xamal #{Xamal.version()}")

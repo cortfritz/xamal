@@ -1,9 +1,9 @@
-defmodule Xamal.CLI.Build do
+defmodule Xamal.Build do
   @moduledoc """
   CLI commands for building and distributing releases.
   """
 
-  import Xamal.CLI.Base
+  import Xamal.Shell
 
   alias Xamal.{Commander, Configuration, SSH}
   alias Xamal.Commands.{Base, Builder}

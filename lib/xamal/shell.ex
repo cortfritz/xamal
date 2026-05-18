@@ -1,4 +1,4 @@
-defmodule Xamal.CLI.Base do
+defmodule Xamal.Shell do
   @moduledoc """
   Shared CLI behavior: lock management, hooks, output, timing.
   """
