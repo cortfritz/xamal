@@ -5,6 +5,9 @@ defmodule Xamal.Commands.Builder do
 
   import Xamal.Commands.Base
 
+  alias Xamal.Configuration
+  alias Xamal.Configuration.{Builder, Role}
+
   @doc """
   Build the release locally with mix release.
   """
@@ -36,7 +39,7 @@ defmodule Xamal.Commands.Builder do
   """
   def deploy_to_host(config) do
     version = config.version
-    release_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+    release_dir = "#{Configuration.releases_directory(config)}/#{version}"
 
     combine([
       make_directory(release_dir),
@@ -48,7 +51,7 @@ defmodule Xamal.Commands.Builder do
   Upload the env file for a role to the remote host.
   """
   def upload_env_file(config, role) do
-    env_path = Xamal.Configuration.Role.secrets_path(role, config)
+    env_path = Role.secrets_path(role, config)
 
     make_directory(Path.dirname(env_path))
   end
@@ -78,7 +81,7 @@ defmodule Xamal.Commands.Builder do
   Builder args from `builder.args` are passed as environment variables via `-e` flags.
   """
   def build_in_docker(config) do
-    image = Xamal.Configuration.Builder.docker_image(config.builder)
+    image = Builder.docker_image(config.builder)
     release_name = config.release.name
     mix_env = config.release.mix_env
 
@@ -120,7 +123,7 @@ defmodule Xamal.Commands.Builder do
   def scp_tarball(config, host, ssh_config) do
     local_tarball = tarball_path(config)
     version = config.version
-    remote_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+    remote_dir = "#{Configuration.releases_directory(config)}/#{version}"
     remote_path = "#{remote_dir}/#{tarball_name(config)}"
 
     port_arg = if ssh_config.port != 22, do: "-P #{ssh_config.port}", else: ""
@@ -133,7 +136,7 @@ defmodule Xamal.Commands.Builder do
   """
   def unpack_tarball(config) do
     version = config.version
-    release_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+    release_dir = "#{Configuration.releases_directory(config)}/#{version}"
     tarball = "#{release_dir}/#{tarball_name(config)}"
 
     combine([

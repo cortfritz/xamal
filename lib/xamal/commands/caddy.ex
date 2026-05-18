@@ -5,6 +5,9 @@ defmodule Xamal.Commands.Caddy do
 
   import Xamal.Commands.Base
 
+  alias Xamal.Configuration
+  alias Xamal.Configuration.Caddy, as: CaddyConfig
+
   @doc """
   Install Caddy via apt on Debian/Ubuntu.
   """
@@ -43,7 +46,7 @@ defmodule Xamal.Commands.Caddy do
   Write a Caddyfile to the service directory.
   """
   def write_caddyfile(config, upstream_port) do
-    caddyfile_content = Xamal.Configuration.Caddy.generate_caddyfile(config.caddy, upstream_port)
+    caddyfile_content = CaddyConfig.generate_caddyfile(config.caddy, upstream_port)
     escaped = String.replace(caddyfile_content, "'", "'\\''")
     caddyfile_path = caddyfile_path(config)
 
@@ -57,7 +60,7 @@ defmodule Xamal.Commands.Caddy do
   Write a maintenance mode Caddyfile.
   """
   def write_maintenance_caddyfile(config) do
-    caddyfile_content = Xamal.Configuration.Caddy.maintenance_caddyfile(config.caddy)
+    caddyfile_content = CaddyConfig.maintenance_caddyfile(config.caddy)
     escaped = String.replace(caddyfile_content, "'", "'\\''")
     caddyfile_path = caddyfile_path(config)
 
@@ -146,10 +149,10 @@ defmodule Xamal.Commands.Caddy do
   end
 
   defp caddyfile_path(config) do
-    "#{Xamal.Configuration.service_directory(config)}/Caddyfile"
+    "#{Configuration.service_directory(config)}/Caddyfile"
   end
 
   defp active_port_path(config) do
-    "#{Xamal.Configuration.service_directory(config)}/active_port"
+    "#{Configuration.service_directory(config)}/active_port"
   end
 end

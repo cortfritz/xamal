@@ -14,7 +14,7 @@ defmodule Xamal.MixProject do
       aliases: aliases(),
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
-        plt_add_apps: [:mix]
+        plt_add_apps: [:ex_unit, :mix]
       ]
     ]
   end

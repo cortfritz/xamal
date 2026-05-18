@@ -42,9 +42,8 @@ defmodule Xamal.MixTask do
       OptionParser.parse_head(args, strict: @global_switches, aliases: @global_aliases)
 
     if invalid != [] do
-      invalid
-      |> Enum.map_join(", ", fn {flag, _value} -> flag end)
-      |> then(&Mix.raise("Unknown option: #{&1}"))
+      invalid_options = Enum.map_join(invalid, ", ", fn {flag, _value} -> flag end)
+      Mix.raise("Unknown option: #{invalid_options}")
     end
 
     {opts, rest}

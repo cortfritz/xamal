@@ -5,6 +5,9 @@ defmodule Xamal.Lock do
 
   import Xamal.Shell
 
+  alias Xamal.Commander
+  alias Xamal.Commands.Lock, as: LockCommand
+
   def run(subcommand, args, opts) do
     case subcommand do
       "status" -> status(args, opts)
@@ -15,8 +18,8 @@ defmodule Xamal.Lock do
   end
 
   def status(_args, _opts) do
-    config = Xamal.Commander.config()
-    cmd = Xamal.Commands.Lock.status(config)
+    config = Commander.config()
+    cmd = LockCommand.status(config)
 
     case on_primary(cmd) do
       {:ok, output} ->
@@ -29,7 +32,7 @@ defmodule Xamal.Lock do
   end
 
   def acquire(args, _opts) do
-    config = Xamal.Commander.config()
+    config = Commander.config()
 
     {lock_opts, rest, _} =
       OptionParser.parse(args, switches: [message: :string], aliases: [m: :message])
@@ -41,8 +44,8 @@ defmodule Xamal.Lock do
         true -> "Manual lock"
       end
 
-    on_primary(Xamal.Commands.Lock.ensure_locks_directory(config))
-    cmd = Xamal.Commands.Lock.acquire(config, message, config.version)
+    on_primary(LockCommand.ensure_locks_directory(config))
+    cmd = LockCommand.acquire(config, message, config.version)
 
     case on_primary(cmd) do
       {:ok, _} -> say("Deploy lock acquired", :green)
@@ -51,8 +54,8 @@ defmodule Xamal.Lock do
   end
 
   def release(_args, _opts) do
-    config = Xamal.Commander.config()
-    cmd = Xamal.Commands.Lock.release(config)
+    config = Commander.config()
+    cmd = LockCommand.release(config)
 
     case on_primary(cmd) do
       {:ok, _} ->
