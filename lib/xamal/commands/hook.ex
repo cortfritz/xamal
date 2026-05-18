@@ -66,10 +66,8 @@ defmodule Xamal.Commands.Hook do
   end
 
   defp lock_status do
-    try do
-      if Xamal.Commander.holding_lock?(), do: "true", else: "false"
-    rescue
-      _ -> "false"
-    end
+    if Xamal.Commander.holding_lock?(), do: "true", else: "false"
+  rescue
+    _ -> "false"
   end
 end

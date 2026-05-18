@@ -6,6 +6,7 @@ defmodule Xamal.SSH do
   Uses Erlang's `:ssh` stdlib under the hood via ConnectionPool.
   """
 
+  alias Xamal.Configuration.Boot
   alias Xamal.SSH.{ConnectionPool, Host, Runner}
 
   @doc """
@@ -20,26 +21,26 @@ defmodule Xamal.SSH do
   Execute on hosts grouped by role, with configurable parallelism.
   """
   def on_roles(roles, config, fun, opts \\ []) do
-    parallel = Keyword.get(opts, :parallel, false)
-    boot = config.boot
-
-    if parallel and boot.parallel_roles do
-      # All roles in parallel
-      roles
-      |> Enum.flat_map(fn role ->
-        on(role.hosts, fn host -> fun.(host, role) end)
-      end)
+    if parallel_roles?(config.boot, opts) do
+      Enum.flat_map(roles, &run_role(&1, fun))
     else
-      # Roles sequentially, hosts within role in parallel (with limit)
-      Enum.flat_map(roles, fn role ->
-        limit = Xamal.Configuration.Boot.resolved_limit(boot, length(role.hosts))
-
-        Runner.run(role.hosts, fn host -> fun.(host, role) end,
-          concurrency: limit,
-          wait: boot.wait
-        )
-      end)
+      Enum.flat_map(roles, &run_role(&1, fun, config.boot))
     end
+  end
+
+  defp parallel_roles?(boot, opts) do
+    Keyword.get(opts, :parallel, false) and boot.parallel_roles
+  end
+
+  defp run_role(role, fun) do
+    on(role.hosts, fn host -> fun.(host, role) end)
+  end
+
+  defp run_role(role, fun, boot) do
+    Runner.run(role.hosts, fn host -> fun.(host, role) end,
+      concurrency: Boot.resolved_limit(boot, length(role.hosts)),
+      wait: boot.wait
+    )
   end
 
   @doc """

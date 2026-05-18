@@ -104,30 +104,37 @@ defmodule Xamal.CLI.Base do
   Run a hook script if it exists and hooks aren't skipped.
   """
   def run_hook(hook_name, opts \\ []) do
-    skip = Keyword.get(opts, :skip_hooks, false)
     config = Commander.config()
 
-    if !skip && config && Hook.hook_exists?(config, hook_name) do
-      say("Running hook #{hook_name}...", :magenta)
+    if run_hook?(config, hook_name, opts) do
+      hook_name
+      |> hook_command(config, opts)
+      |> run_hook_command(hook_name)
+    end
+  end
 
-      hook_cmd = Hook.run(config, hook_name)
-      hook_env = Hook.env(config, Map.new(Keyword.get(opts, :details, [])))
+  defp run_hook?(config, hook_name, opts) do
+    !Keyword.get(opts, :skip_hooks, false) && config && Hook.hook_exists?(config, hook_name)
+  end
 
-      env_pairs = Enum.map(hook_env, fn {k, v} -> {to_string(k), to_string(v)} end)
+  defp hook_command(hook_name, config, opts) do
+    say("Running hook #{hook_name}...", :magenta)
+    hook_cmd = Hook.run(config, hook_name)
+    hook_env = Hook.env(config, Map.new(Keyword.get(opts, :details, [])))
+    env_pairs = Enum.map(hook_env, fn {key, value} -> {to_string(key), to_string(value)} end)
+    {Enum.join(hook_cmd, " "), env_pairs}
+  end
 
-      case System.cmd("sh", ["-c", Enum.join(hook_cmd, " ")],
-             env: env_pairs,
-             stderr_to_stdout: true
-           ) do
-        {output, 0} ->
-          if output != "", do: IO.puts(output)
-          :ok
+  defp run_hook_command({command, env_pairs}, hook_name) do
+    case System.cmd("sh", ["-c", command], env: env_pairs, stderr_to_stdout: true) do
+      {output, 0} ->
+        if output != "", do: IO.puts(output)
+        :ok
 
-        {output, code} ->
-          say("Hook '#{hook_name}' failed (exit #{code}):", :red)
-          IO.puts(output)
-          raise "Hook `#{hook_name}` failed"
-      end
+      {output, code} ->
+        say("Hook '#{hook_name}' failed (exit #{code}):", :red)
+        IO.puts(output)
+        raise "Hook `#{hook_name}` failed"
     end
   end
 
@@ -283,23 +290,25 @@ defmodule Xamal.CLI.Base do
   """
   def dispatch_logs(log_opts, build_cmd, config, opts \\ []) do
     hosts = Commander.hosts()
-    type = Keyword.get(opts, :type, "App")
-    follow = Keyword.get(log_opts, :follow, false)
 
-    if follow do
-      host = hd(hosts)
-      cmd = build_cmd.(log_opts)
-
-      SSH.streaming_exec(host, Base.to_command_string(cmd), ssh_config: config.ssh)
+    if Keyword.get(log_opts, :follow, false) do
+      stream_logs(hd(hosts), build_cmd.(log_opts), config)
     else
-      Enum.each(hosts, fn host ->
-        cmd = build_cmd.(log_opts)
+      Enum.each(hosts, &print_logs(&1, build_cmd, log_opts, config, opts))
+    end
+  end
 
-        case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-          {:ok, output} -> puts_by_host(host, output, type: type)
-          {:error, _} -> puts_by_host(host, "(no logs available)", type: type)
-        end
-      end)
+  defp stream_logs(host, cmd, config) do
+    SSH.streaming_exec(host, Base.to_command_string(cmd), ssh_config: config.ssh)
+  end
+
+  defp print_logs(host, build_cmd, log_opts, config, opts) do
+    type = Keyword.get(opts, :type, "App")
+    cmd = build_cmd.(log_opts)
+
+    case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      {:ok, output} -> puts_by_host(host, output, type: type)
+      {:error, _} -> puts_by_host(host, "(no logs available)", type: type)
     end
   end
 

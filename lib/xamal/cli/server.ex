@@ -18,20 +18,22 @@ defmodule Xamal.CLI.Server do
   end
 
   def exec(args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
     command = Enum.join(args, " ")
 
     if command == "" do
       say("Usage: xamal server exec COMMAND", :red)
     else
-      Enum.each(hosts, fn host ->
-        case SSH.execute(host, command, ssh_config: config.ssh) do
-          {:ok, output} -> puts_by_host(host, output, type: "Server")
-          {:error, reason} -> puts_by_host(host, "Error: #{inspect(reason)}", type: "Server")
-        end
-      end)
+      exec_on_hosts(command, Commander.config(), Commander.hosts())
     end
+  end
+
+  defp exec_on_hosts(command, config, hosts) do
+    Enum.each(hosts, fn host ->
+      case SSH.execute(host, command, ssh_config: config.ssh) do
+        {:ok, output} -> puts_by_host(host, output, type: "Server")
+        {:error, reason} -> puts_by_host(host, "Error: #{inspect(reason)}", type: "Server")
+      end
+    end)
   end
 
   def bootstrap(_args, _opts) do

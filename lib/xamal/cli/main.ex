@@ -5,6 +5,19 @@ defmodule Xamal.CLI.Main do
 
   import Xamal.CLI.Base
 
+  alias Xamal.CLI.App
+  alias Xamal.CLI.Build
+  alias Xamal.CLI.Prune
+  alias Xamal.CLI.Server
+  alias Xamal.Commander
+  alias Xamal.Commands.App, as: AppCommand
+  alias Xamal.Commands.Auditor
+  alias Xamal.Commands.Server, as: ServerCommand
+  alias Xamal.Commands.Systemd
+  alias Xamal.Configuration
+  alias Xamal.Init
+  alias Xamal.SSH
+
   def setup(_args, opts) do
     ensure_clean_git!(opts)
 
@@ -13,7 +26,7 @@ defmodule Xamal.CLI.Main do
         record_audit("Setup started")
 
         say("Bootstrapping servers...", :magenta)
-        Xamal.CLI.Server.run("bootstrap", [], opts)
+        Server.run("bootstrap", [], opts)
 
         do_deploy(opts)
 
@@ -25,7 +38,7 @@ defmodule Xamal.CLI.Main do
   def deploy(_args, opts) do
     ensure_clean_git!(opts)
 
-    config = Xamal.Commander.config()
+    config = Commander.config()
     record_audit("Deploy started", %{version: config.version})
 
     runtime =
@@ -41,7 +54,7 @@ defmodule Xamal.CLI.Main do
   def redeploy(_args, opts) do
     ensure_clean_git!(opts)
 
-    config = Xamal.Commander.config()
+    config = Commander.config()
     record_audit("Redeploy started", %{version: config.version})
 
     runtime =
@@ -50,17 +63,17 @@ defmodule Xamal.CLI.Main do
 
         if skip_push do
           say("Distributing release to servers...", :magenta)
-          Xamal.CLI.Build.run("pull", [], opts)
+          Build.run("pull", [], opts)
         else
           say("Building and distributing release...", :magenta)
-          Xamal.CLI.Build.run("deliver", [], opts)
+          Build.run("deliver", [], opts)
         end
 
         with_lock(fn ->
           run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
 
           say("Booting app...", :magenta)
-          Xamal.CLI.App.run("boot", [], opts)
+          App.run("boot", [], opts)
         end)
       end)
 
@@ -69,75 +82,41 @@ defmodule Xamal.CLI.Main do
     runtime
   end
 
-  def rollback(args, opts) do
-    case args do
-      [version | _] ->
-        record_audit("Rollback started", %{version: version})
+  def rollback([version | _], opts) do
+    record_audit("Rollback started", %{version: version})
 
-        print_runtime(fn ->
-          with_lock(fn ->
-            config = Xamal.Commander.config()
-            say("Rolling back to version #{version}...", :magenta)
+    print_runtime(fn ->
+      with_lock(fn ->
+        run_rollback(version, opts)
+      end)
+    end)
 
-            run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+    record_audit("Rollback completed", %{version: version})
+  end
 
-            roles = Xamal.Commander.roles()
+  def rollback([], opts) do
+    case previous_version(Commander.config()) do
+      nil ->
+        IO.puts(:stderr, "No previous version found to roll back to.")
+        IO.puts(:stderr, "Usage: xamal rollback [VERSION]")
+        System.halt(1)
 
-            Enum.each(roles, fn role ->
-              Enum.each(role.hosts, fn host ->
-                say("  Rolling back #{host} (#{role.name})...", :magenta)
-                do_rollback_host(config, role, host, version)
-              end)
-            end)
-
-            run_hook("post-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
-          end)
-        end)
-
-        record_audit("Rollback completed", %{version: version})
-
-      [] ->
-        config = Xamal.Commander.config()
-
-        releases =
-          case on_primary(Xamal.Commands.App.list_releases(config)) do
-            {:ok, output} -> output |> String.trim() |> String.split("\n", trim: true)
-            {:error, _} -> []
-          end
-
-        current =
-          case on_primary(Xamal.Commands.App.current_version(config)) do
-            {:ok, output} -> String.trim(output)
-            {:error, _} -> nil
-          end
-
-        previous =
-          case Enum.drop_while(releases, fn v -> v != current end) do
-            [_ | [prev | _]] -> prev
-            _ -> nil
-          end
-
-        if previous do
-          say("Auto-detected previous version: #{previous}", :magenta)
-          rollback([previous], opts)
-        else
-          IO.puts(:stderr, "No previous version found to roll back to.")
-          IO.puts(:stderr, "Usage: xamal rollback [VERSION]")
-          System.halt(1)
-        end
+      previous ->
+        say("Auto-detected previous version: #{previous}", :magenta)
+        rollback([previous], opts)
     end
   end
 
   def details(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
       say("Host: #{host}", :magenta)
 
       active_port = read_active_port(host, config)
 
-      case Xamal.SSH.execute_command(host, Xamal.Commands.App.details(config, active_port),
+      case SSH.execute_command(host, AppCommand.details(config, active_port),
              ssh_config: config.ssh
            ) do
         {:ok, output} -> IO.puts(output)
@@ -149,49 +128,16 @@ defmodule Xamal.CLI.Main do
   end
 
   def versions(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
-
-    Enum.each(hosts, fn host ->
-      say("Host: #{host}", :magenta)
-
-      releases =
-        case Xamal.SSH.execute_command(host, Xamal.Commands.App.list_releases(config),
-               ssh_config: config.ssh
-             ) do
-          {:ok, output} -> output |> String.trim() |> String.split("\n", trim: true)
-          {:error, _} -> []
-        end
-
-      current =
-        case Xamal.SSH.execute_command(host, Xamal.Commands.App.current_version(config),
-               ssh_config: config.ssh
-             ) do
-          {:ok, output} -> String.trim(output)
-          {:error, _} -> nil
-        end
-
-      if releases == [] do
-        IO.puts("  (no releases)")
-      else
-        Enum.each(releases, fn version ->
-          marker = if version == current, do: " (current)", else: ""
-          IO.puts("  #{version}#{marker}")
-        end)
-      end
-
-      IO.puts("")
-    end)
+    config = Commander.config()
+    Enum.each(Commander.hosts(), &print_versions(&1, config))
   end
 
   def audit(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
-      case Xamal.SSH.execute_command(host, Xamal.Commands.Auditor.reveal(config),
-             ssh_config: config.ssh
-           ) do
+      case SSH.execute_command(host, Auditor.reveal(config), ssh_config: config.ssh) do
         {:ok, output} -> puts_by_host(host, output)
         {:error, _} -> puts_by_host(host, "(no audit log)")
       end
@@ -199,9 +145,9 @@ defmodule Xamal.CLI.Main do
   end
 
   def config(_args, _opts) do
-    config = Xamal.Commander.config()
+    config = Commander.config()
 
-    IO.puts("Service: #{Xamal.Configuration.service(config)}")
+    IO.puts("Service: #{Configuration.service(config)}")
     IO.puts("Version: #{config.version}")
     IO.puts("Destination: #{config.destination || "(none)"}")
     IO.puts("")
@@ -221,25 +167,25 @@ defmodule Xamal.CLI.Main do
   end
 
   def init(_args, _opts) do
-    Xamal.Init.run(yes: true)
+    Init.run(yes: true)
   end
 
   def remove(_args, opts) do
     confirming("This will remove all releases and Caddy config. Are you sure?", opts, fn ->
-      config = Xamal.Commander.config()
+      config = Commander.config()
 
       with_lock(fn ->
         record_audit("Remove started")
 
         say("Stopping app...", :magenta)
-        Xamal.CLI.App.run("stop", [], opts)
+        App.run("stop", [], opts)
 
         say("Removing systemd units...", :magenta)
-        on_hosts(Xamal.Commands.Systemd.disable_all(config))
-        on_hosts(Xamal.Commands.Systemd.remove_unit(config))
+        on_hosts(Systemd.disable_all(config))
+        on_hosts(Systemd.remove_unit(config))
 
         say("Removing service directory...", :magenta)
-        on_hosts(Xamal.Commands.Server.remove_service_directory(config))
+        on_hosts(ServerCommand.remove_service_directory(config))
 
         record_audit("Remove completed")
         say("Removed!", :green)
@@ -249,25 +195,95 @@ defmodule Xamal.CLI.Main do
 
   # Private
 
+  defp print_versions(host, config) do
+    say("Host: #{host}", :magenta)
+    host_versions = host_releases(host, config)
+    current = host_current_version(host, config)
+    Enum.each(version_lines(host_versions, current), &IO.puts/1)
+    IO.puts("")
+  end
+
+  defp host_releases(host, config) do
+    case SSH.execute_command(host, AppCommand.list_releases(config), ssh_config: config.ssh) do
+      {:ok, output} -> output |> String.trim() |> String.split("\n", trim: true)
+      {:error, _} -> []
+    end
+  end
+
+  defp host_current_version(host, config) do
+    case SSH.execute_command(host, AppCommand.current_version(config), ssh_config: config.ssh) do
+      {:ok, output} -> String.trim(output)
+      {:error, _} -> nil
+    end
+  end
+
+  defp version_lines([], _current), do: ["  (no releases)"]
+
+  defp version_lines(releases, current) do
+    Enum.map(releases, fn version ->
+      marker = if version == current, do: " (current)", else: ""
+      "  #{version}#{marker}"
+    end)
+  end
+
+  defp run_rollback(version, opts) do
+    config = Commander.config()
+    say("Rolling back to version #{version}...", :magenta)
+    run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+    Enum.each(Commander.roles(), &rollback_role(config, &1, version))
+    run_hook("post-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+  end
+
+  defp rollback_role(config, role, version) do
+    Enum.each(role.hosts, fn host ->
+      say("  Rolling back #{host} (#{role.name})...", :magenta)
+      do_rollback_host(config, role, host, version)
+    end)
+  end
+
+  defp previous_version(config) do
+    releases = releases(config)
+    current = current_version(config)
+
+    case Enum.drop_while(releases, &(&1 != current)) do
+      [_current, previous | _] -> previous
+      _ -> nil
+    end
+  end
+
+  defp releases(config) do
+    case on_primary(AppCommand.list_releases(config)) do
+      {:ok, output} -> output |> String.trim() |> String.split("\n", trim: true)
+      {:error, _} -> []
+    end
+  end
+
+  defp current_version(config) do
+    case on_primary(AppCommand.current_version(config)) do
+      {:ok, output} -> String.trim(output)
+      {:error, _} -> nil
+    end
+  end
+
   defp do_deploy(opts) do
     skip_push = Keyword.get(opts, :skip_push, false)
 
     if skip_push do
       say("Distributing release to servers...", :magenta)
-      Xamal.CLI.Build.run("pull", [], opts)
+      Build.run("pull", [], opts)
     else
       say("Building and distributing release...", :magenta)
-      Xamal.CLI.Build.run("deliver", [], opts)
+      Build.run("deliver", [], opts)
     end
 
     with_lock(fn ->
       run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
 
       say("Booting app on servers...", :magenta)
-      Xamal.CLI.App.run("boot", [], opts)
+      App.run("boot", [], opts)
 
       say("Pruning old releases...", :magenta)
-      Xamal.CLI.Prune.prune([], opts)
+      Prune.prune([], opts)
     end)
   end
 
