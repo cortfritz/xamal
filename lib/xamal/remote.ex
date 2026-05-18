@@ -4,26 +4,34 @@ defmodule Xamal.Remote do
   alias Xamal.{Commander, SSH}
   alias Xamal.Commands.{Auditor, Caddy}
 
-  def on_primary(command_parts) do
-    config = Commander.config()
-    host = Commander.primary_host()
+  def on_primary(command_parts), do: on_primary(command_parts, Commander.context())
+
+  def on_primary(command_parts, context) do
+    config = context.config
+    host = Xamal.Context.primary_host(context)
     SSH.execute_command(host, command_parts, ssh_config: config.ssh)
   end
 
-  def on_hosts(command_parts) do
-    config = Commander.config()
+  def on_hosts(command_parts), do: on_hosts(command_parts, Commander.context())
 
-    Commander.hosts()
+  def on_hosts(command_parts, context) do
+    config = context.config
+
+    context
+    |> Xamal.Context.hosts()
     |> SSH.on(fn host -> SSH.execute_command(host, command_parts, ssh_config: config.ssh) end)
   end
 
-  def record_audit(message, details \\ %{}) do
-    config = Commander.config()
+  def record_audit(message, details \\ %{}),
+    do: record_audit(message, details, Commander.context())
+
+  def record_audit(message, details, context) do
+    config = context.config
 
     if config do
       config
       |> Auditor.record(message, DateTime.utc_now() |> DateTime.to_iso8601(), details)
-      |> on_primary()
+      |> on_primary(context)
     end
   end
 

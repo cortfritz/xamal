@@ -5,6 +5,8 @@ defmodule Xamal.SecretTasks do
 
   import Xamal.Output
 
+  alias Xamal.Commander
+
   @adapters %{
     "doppler" => &__MODULE__.fetch_doppler/1,
     "1password" => &__MODULE__.fetch_1password/1,
@@ -16,7 +18,9 @@ defmodule Xamal.SecretTasks do
     "passbolt" => &__MODULE__.fetch_passbolt/1
   }
 
-  def fetch([adapter | rest], _opts) do
+  def fetch(args, opts), do: fetch(args, opts, Commander.context())
+
+  def fetch([adapter | rest], _opts, _context) do
     case Map.fetch(@adapters, adapter) do
       {:ok, fetcher} ->
         say("Fetching secrets via #{adapter}...", :magenta)
@@ -28,12 +32,14 @@ defmodule Xamal.SecretTasks do
     end
   end
 
-  def fetch([], _opts) do
+  def fetch([], _opts, _context) do
     say("Usage: mix xamal.secrets.fetch <adapter> [options]", :red)
   end
 
-  def extract(args, _opts) do
-    config = Xamal.Commander.config()
+  def extract(args, opts), do: extract(args, opts, Commander.context())
+
+  def extract(args, _opts, context) do
+    config = context.config
 
     case args do
       [key | _] ->
@@ -45,8 +51,10 @@ defmodule Xamal.SecretTasks do
     end
   end
 
-  def print_secrets(_args, _opts) do
-    config = Xamal.Commander.config()
+  def print_secrets(args, opts), do: print_secrets(args, opts, Commander.context())
+
+  def print_secrets(_args, _opts, context) do
+    config = context.config
     secrets = Xamal.Secrets.to_map(config.secrets)
 
     Enum.each(secrets, fn {key, value} ->

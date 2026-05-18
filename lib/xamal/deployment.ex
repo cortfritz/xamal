@@ -9,76 +9,78 @@ defmodule Xamal.Deployment do
   import Xamal.Remote
   import Xamal.TaskHelpers
 
-  alias Xamal.{AppTasks, BuildTasks, Commander, Prune, ServerTasks}
+  alias Xamal.{AppTasks, BuildTasks, Commander, Context, Prune, ServerTasks}
   alias Xamal.Commands.App, as: AppCommand
 
-  def setup(opts) do
+  def setup(opts, context \\ Commander.context()) do
     ensure_clean_git!(opts)
 
     print_runtime(fn ->
       with_lock(fn ->
-        record_audit("Setup started")
+        record_audit("Setup started", %{}, context)
 
         say("Bootstrapping servers...", :magenta)
-        ServerTasks.bootstrap([], opts)
+        ServerTasks.bootstrap([], opts, context)
 
-        do_deploy(opts)
+        do_deploy(opts, context)
 
-        record_audit("Setup completed")
+        record_audit("Setup completed", %{}, context)
       end)
     end)
   end
 
-  def deploy(opts) do
+  def deploy(opts, context \\ Commander.context()) do
     ensure_clean_git!(opts)
 
-    config = Commander.config()
-    record_audit("Deploy started", %{version: config.version})
+    config = context.config
+    record_audit("Deploy started", %{version: config.version}, context)
 
-    runtime = print_runtime(fn -> do_deploy(opts) end)
+    runtime = print_runtime(fn -> do_deploy(opts, context) end)
 
-    record_audit("Deploy completed", %{version: config.version})
-    run_hook("post-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+    record_audit("Deploy completed", %{version: config.version}, context)
+    run_hook("post-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
     runtime
   end
 
-  def redeploy(opts) do
+  def redeploy(opts, context \\ Commander.context()) do
     ensure_clean_git!(opts)
 
-    config = Commander.config()
-    record_audit("Redeploy started", %{version: config.version})
+    config = context.config
+    record_audit("Redeploy started", %{version: config.version}, context)
 
     runtime =
       print_runtime(fn ->
-        distribute_release(opts)
+        distribute_release(opts, context)
 
         with_lock(fn ->
-          run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+          run_hook("pre-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
 
           say("Booting app...", :magenta)
-          AppTasks.boot([], opts)
+          AppTasks.boot([], opts, context)
         end)
       end)
 
-    record_audit("Redeploy completed", %{version: config.version})
-    run_hook("post-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+    record_audit("Redeploy completed", %{version: config.version}, context)
+    run_hook("post-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
     runtime
   end
 
-  def deploy_release(opts), do: do_deploy(opts)
+  def deploy_release(opts, context \\ Commander.context()), do: do_deploy(opts, context)
 
-  def rollback([version | _], opts) do
-    record_audit("Rollback started", %{version: version})
+  def rollback(args, opts, context \\ Commander.context())
+
+  def rollback([version | _], opts, context) do
+    record_audit("Rollback started", %{version: version}, context)
 
     print_runtime(fn ->
-      with_lock(fn -> run_rollback(version, opts) end)
+      with_lock(fn -> run_rollback(version, opts, context) end)
     end)
 
-    record_audit("Rollback completed", %{version: version})
+    record_audit("Rollback completed", %{version: version}, context)
   end
 
-  def rollback([], opts) do
-    case previous_version(Commander.config()) do
+  def rollback([], opts, context) do
+    case previous_version(context.config) do
       nil ->
         IO.puts(:stderr, "No previous version found to roll back to.")
         IO.puts(:stderr, "Usage: mix xamal.rollback [VERSION]")
@@ -89,30 +91,30 @@ defmodule Xamal.Deployment do
 
       previous ->
         say("Auto-detected previous version: #{previous}", :magenta)
-        rollback([previous], opts)
+        rollback([previous], opts, context)
     end
   end
 
-  defp do_deploy(opts) do
-    distribute_release(opts)
+  defp do_deploy(opts, context) do
+    distribute_release(opts, context)
 
     with_lock(fn ->
-      run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+      run_hook("pre-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
 
       say("Booting app on servers...", :magenta)
-      AppTasks.boot([], opts)
+      AppTasks.boot([], opts, context)
 
       say("Pruning old releases...", :magenta)
-      Prune.prune([], opts)
+      Prune.prune([], opts, context)
     end)
   end
 
-  defp run_rollback(version, opts) do
-    config = Commander.config()
+  defp run_rollback(version, opts, context) do
+    config = context.config
     say("Rolling back to version #{version}...", :magenta)
-    run_hook("pre-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
-    Enum.each(Commander.roles(), &rollback_role(config, &1, version))
-    run_hook("post-deploy", skip_hooks: Keyword.get(opts, :skip_hooks, false))
+    run_hook("pre-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
+    Enum.each(Context.roles(context), &rollback_role(config, &1, version))
+    run_hook("post-deploy", [skip_hooks: Keyword.get(opts, :skip_hooks, false)], context)
   end
 
   defp rollback_role(config, role, version) do
@@ -147,13 +149,13 @@ defmodule Xamal.Deployment do
     end
   end
 
-  defp distribute_release(opts) do
+  defp distribute_release(opts, context) do
     if Keyword.get(opts, :skip_push, false) do
       say("Distributing release to servers...", :magenta)
-      BuildTasks.pull([], opts)
+      BuildTasks.pull([], opts, context)
     else
       say("Building and distributing release...", :magenta)
-      BuildTasks.deliver([], opts)
+      BuildTasks.deliver([], opts, context)
     end
   end
 end

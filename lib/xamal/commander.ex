@@ -17,6 +17,10 @@ defmodule Xamal.Commander do
     update(opts, &Context.put_config(&1, config))
   end
 
+  def configure_context(%Context{} = context, opts \\ []) do
+    update(opts, fn _ -> context end)
+  end
+
   def config(name \\ __MODULE__) do
     name |> get_context() |> Map.get(:config)
   end

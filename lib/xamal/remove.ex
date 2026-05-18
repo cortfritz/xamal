@@ -13,34 +13,36 @@ defmodule Xamal.Remove do
   alias Xamal.Commands.Server, as: ServerCommand
   alias Xamal.Commands.Systemd
 
-  def run(_args, opts) do
+  def run(args, opts), do: run(args, opts, Commander.context())
+
+  def run(_args, opts, context) do
     confirming("This will remove all releases and Caddy config. Are you sure?", opts, fn ->
-      config = Commander.config()
+      config = context.config
 
       with_lock(fn ->
-        record_audit("Remove started")
-        stop_app(opts)
-        remove_systemd(config)
-        remove_service_directory(config)
-        record_audit("Remove completed")
+        record_audit("Remove started", %{}, context)
+        stop_app(opts, context)
+        remove_systemd(config, context)
+        remove_service_directory(config, context)
+        record_audit("Remove completed", %{}, context)
         say("Removed!", :green)
       end)
     end)
   end
 
-  defp stop_app(opts) do
+  defp stop_app(opts, context) do
     say("Stopping app...", :magenta)
-    AppTasks.stop([], opts)
+    AppTasks.stop([], opts, context)
   end
 
-  defp remove_systemd(config) do
+  defp remove_systemd(config, context) do
     say("Removing systemd units...", :magenta)
-    on_hosts(Systemd.disable_all(config))
-    on_hosts(Systemd.remove_unit(config))
+    on_hosts(Systemd.disable_all(config), context)
+    on_hosts(Systemd.remove_unit(config), context)
   end
 
-  defp remove_service_directory(config) do
+  defp remove_service_directory(config, context) do
     say("Removing service directory...", :magenta)
-    on_hosts(ServerCommand.remove_service_directory(config))
+    on_hosts(ServerCommand.remove_service_directory(config), context)
   end
 end

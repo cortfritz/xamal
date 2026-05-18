@@ -9,25 +9,29 @@ defmodule Xamal.AppTasks do
   import Xamal.Remote
   import Xamal.TaskHelpers
 
-  alias Xamal.{Commander, Configuration, EnvFile, SSH}
+  alias Xamal.{Commander, Configuration, Context, EnvFile, SSH}
   alias Xamal.Commands.App, as: AppCommand
   alias Xamal.Commands.Base, as: CommandBase
   alias Xamal.Commands.Caddy
   alias Xamal.Commands.Server
   alias Xamal.Commands.Systemd
 
-  def boot(_args, opts) do
-    config = Commander.config()
+  def boot(args, opts), do: boot(args, opts, Commander.context())
+
+  def boot(_args, opts, context) do
+    config = context.config
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
-    run_hook("pre-app-boot", skip_hooks: skip_hooks)
-    Enum.each(Commander.roles(), &boot_role(&1, config, skip_hooks))
-    run_hook("post-app-boot", skip_hooks: skip_hooks)
+    run_hook("pre-app-boot", [skip_hooks: skip_hooks], context)
+    Enum.each(Context.roles(context), &boot_role(&1, config, skip_hooks))
+    run_hook("post-app-boot", [skip_hooks: skip_hooks], context)
   end
 
-  def start(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def start(args, opts), do: start(args, opts, Commander.context())
+
+  def start(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
       active_port = read_active_port(host, config) || config.caddy.app_port
@@ -37,9 +41,11 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def stop(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def stop(args, opts), do: stop(args, opts, Commander.context())
+
+  def stop(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
       say("  Stopping on #{host}...", :magenta)
@@ -52,9 +58,11 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def exec(args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def exec(args, opts), do: exec(args, opts, Commander.context())
+
+  def exec(args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
     {exec_opts, command} = parse_exec(args)
 
     if Keyword.get(exec_opts, :interactive, false) do
@@ -64,14 +72,16 @@ defmodule Xamal.AppTasks do
     end
   end
 
-  def logs(args, _opts) do
-    config = Commander.config()
+  def logs(args, opts), do: logs(args, opts, Commander.context())
+
+  def logs(args, _opts, context) do
+    config = context.config
     log_opts = parse_log_opts(args)
 
     # For follow mode, resolve the active port for the first host
     log_opts =
       if Keyword.get(log_opts, :follow, false) do
-        host = hd(Commander.hosts())
+        host = hd(Context.hosts(context))
         active_port = read_active_port(host, config)
         if active_port, do: Keyword.put(log_opts, :port, active_port), else: log_opts
       else
@@ -81,9 +91,11 @@ defmodule Xamal.AppTasks do
     dispatch_logs(log_opts, &AppCommand.logs(config, &1), config)
   end
 
-  def details(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def details(args, opts), do: details(args, opts, Commander.context())
+
+  def details(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
       active_port = read_active_port(host, config)
@@ -96,9 +108,11 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def version(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def version(args, opts), do: version(args, opts, Commander.context())
+
+  def version(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
       cmd = AppCommand.current_version(config)
@@ -110,17 +124,21 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def remove(_args, opts) do
+  def remove(args, opts), do: remove(args, opts, Commander.context())
+
+  def remove(_args, opts, context) do
     confirming("This will remove all releases. Are you sure?", opts, fn ->
-      stop([], opts)
-      config = Commander.config()
-      Enum.each(Commander.hosts(), &remove_host_releases(&1, config))
+      stop([], opts, context)
+      config = context.config
+      Enum.each(Context.hosts(context), &remove_host_releases(&1, config))
     end)
   end
 
-  def releases(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def releases(args, opts), do: releases(args, opts, Commander.context())
+
+  def releases(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
       cmd = AppCommand.list_releases(config)
@@ -132,10 +150,12 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def stale_releases(_args, _opts) do
-    config = Commander.config()
+  def stale_releases(args, opts), do: stale_releases(args, opts, Commander.context())
+
+  def stale_releases(_args, _opts, context) do
+    config = context.config
     keep = Configuration.retain_releases(config)
-    hosts = Commander.hosts()
+    hosts = Context.hosts(context)
 
     Enum.each(hosts, fn host ->
       cmd = AppCommand.stale_releases(config, keep)
@@ -147,14 +167,16 @@ defmodule Xamal.AppTasks do
     end)
   end
 
-  def maintenance(_args, opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def maintenance(args, opts), do: maintenance(args, opts, Commander.context())
+
+  def maintenance(_args, opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
     say("Enabling maintenance mode...", :magenta)
 
-    run_hook("pre-caddy-reload", skip_hooks: skip_hooks)
+    run_hook("pre-caddy-reload", [skip_hooks: skip_hooks], context)
 
     Enum.each(hosts, fn host ->
       cmd = Caddy.write_maintenance_caddyfile(config)
@@ -163,17 +185,19 @@ defmodule Xamal.AppTasks do
       say("  Maintenance mode enabled on #{host}", :green)
     end)
 
-    run_hook("post-caddy-reload", skip_hooks: skip_hooks)
+    run_hook("post-caddy-reload", [skip_hooks: skip_hooks], context)
   end
 
-  def live(_args, opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def live(args, opts), do: live(args, opts, Commander.context())
+
+  def live(_args, opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
     say("Disabling maintenance mode...", :magenta)
 
-    run_hook("pre-caddy-reload", skip_hooks: skip_hooks)
+    run_hook("pre-caddy-reload", [skip_hooks: skip_hooks], context)
 
     Enum.each(hosts, fn host ->
       active_port = read_active_port(host, config) || config.caddy.app_port
@@ -184,7 +208,7 @@ defmodule Xamal.AppTasks do
       say("  Live mode restored on #{host} (port #{active_port})", :green)
     end)
 
-    run_hook("post-caddy-reload", skip_hooks: skip_hooks)
+    run_hook("post-caddy-reload", [skip_hooks: skip_hooks], context)
   end
 
   # Private

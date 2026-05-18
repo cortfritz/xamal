@@ -42,12 +42,12 @@ defmodule Xamal.MixTask do
     y: :confirmed
   ]
 
-  def run(args, callback) when is_function(callback, 2) do
+  def run(args, callback) when is_function(callback) do
     Application.ensure_all_started(:xamal)
 
     {opts, rest} = parse_global_options(args)
-    opts |> load_config!() |> configure_commander(opts)
-    callback.(rest, opts)
+    context = opts |> load_config!() |> build_context(opts)
+    dispatch(callback, rest, opts, context)
   end
 
   defp parse_global_options(args) do
@@ -76,9 +76,17 @@ defmodule Xamal.MixTask do
     )
   end
 
-  defp configure_commander(config, opts) do
-    Commander.configure(config)
-    CommandOptions.apply_filters_and_verbosity(opts)
-    config
+  defp build_context(config, opts) do
+    context = CommandOptions.build_context(config, opts)
+    Commander.configure_context(context)
+    CommandOptions.configure_logger(opts)
+    context
+  end
+
+  defp dispatch(callback, args, opts, context) do
+    case :erlang.fun_info(callback, :arity) do
+      {:arity, 3} -> callback.(args, opts, context)
+      {:arity, 2} -> callback.(args, opts)
+    end
   end
 end

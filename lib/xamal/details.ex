@@ -6,14 +6,16 @@ defmodule Xamal.Details do
   import Xamal.Output
   import Xamal.Remote
 
-  alias Xamal.Commander
+  alias Xamal.{Commander, Context}
   alias Xamal.Commands.App, as: AppCommand
   alias Xamal.SSH
 
-  def print(_args, _opts) do
-    config = Commander.config()
+  def print(args, opts), do: print(args, opts, Commander.context())
 
-    Enum.each(Commander.hosts(), fn host ->
+  def print(_args, _opts, context) do
+    config = context.config
+
+    Enum.each(Context.hosts(context), fn host ->
       say("Host: #{host}", :magenta)
       print_host_details(host, config)
       IO.puts("")

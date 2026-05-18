@@ -5,13 +5,15 @@ defmodule Xamal.Prune do
 
   import Xamal.Output
 
-  alias Xamal.{Commander, SSH}
+  alias Xamal.{Commander, Context, SSH}
   alias Xamal.Commands.Prune, as: PruneCommand
   alias Xamal.Configuration
 
-  def prune(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def prune(args, opts), do: prune(args, opts, Commander.context())
+
+  def prune(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
     keep = Configuration.retain_releases(config)
 
     say("Pruning old releases (keeping #{keep})...", :magenta)

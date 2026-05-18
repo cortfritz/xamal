@@ -6,20 +6,24 @@ defmodule Xamal.BuildTasks do
   import Xamal.Hooks
   import Xamal.Output
 
-  alias Xamal.{Commander, Configuration, SSH}
+  alias Xamal.{Commander, Configuration, Context, SSH}
   alias Xamal.Commands.{Base, Builder}
   alias Xamal.Configuration.Builder, as: BuildConfig
 
-  def deliver(_args, opts) do
+  def deliver(args, opts), do: deliver(args, opts, Commander.context())
+
+  def deliver(_args, opts, context) do
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
-    run_hook("pre-build", skip_hooks: skip_hooks)
-    push([], opts)
-    run_hook("post-build", skip_hooks: skip_hooks)
-    pull([], opts)
+    run_hook("pre-build", [skip_hooks: skip_hooks], context)
+    push([], opts, context)
+    run_hook("post-build", [skip_hooks: skip_hooks], context)
+    pull([], opts, context)
   end
 
-  def push(_args, _opts) do
-    config = Commander.config()
+  def push(args, opts), do: push(args, opts, Commander.context())
+
+  def push(_args, _opts, context) do
+    config = context.config
     docker? = BuildConfig.docker?(config.builder)
 
     if docker? do
@@ -104,9 +108,11 @@ defmodule Xamal.BuildTasks do
               __STACKTRACE__
   end
 
-  def pull(_args, _opts) do
-    config = Commander.config()
-    hosts = Commander.hosts()
+  def pull(args, opts), do: pull(args, opts, Commander.context())
+
+  def pull(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
 
     tarball_path = Builder.tarball_path(config)
 
@@ -140,8 +146,10 @@ defmodule Xamal.BuildTasks do
     end)
   end
 
-  def details(_args, _opts) do
-    config = Commander.config()
+  def details(args, opts), do: details(args, opts, Commander.context())
+
+  def details(_args, _opts, context) do
+    config = context.config
 
     IO.puts("Build configuration:")
     IO.puts("  Release name: #{config.release.name}")

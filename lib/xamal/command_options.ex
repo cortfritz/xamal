@@ -3,53 +3,57 @@ defmodule Xamal.CommandOptions do
 
   require Logger
 
-  alias Xamal.{Commander, Configuration}
+  alias Xamal.{Configuration, Context}
 
-  def apply_filters_and_verbosity(opts) do
-    configure_host_filter(opts)
-    configure_role_filter(opts)
-    configure_primary_filter(opts)
-    configure_verbosity(opts)
+  def build_context(config, opts) do
+    config
+    |> Context.new()
+    |> put_host_filter(opts)
+    |> put_role_filter(opts)
+    |> put_primary_filter(opts)
+    |> put_verbosity(opts)
   end
 
-  defp configure_host_filter(opts) do
-    if hosts = Keyword.get(opts, :hosts) do
-      hosts |> String.split(",") |> Commander.set_specific_hosts()
-    end
-  end
-
-  defp configure_role_filter(opts) do
-    if roles = Keyword.get(opts, :roles) do
-      roles |> String.split(",") |> Commander.set_specific_roles()
-    end
-  end
-
-  defp configure_primary_filter(opts) do
-    if Keyword.get(opts, :primary) do
-      Commander.config()
-      |> primary_host()
-      |> set_primary_host()
-    end
-  end
-
-  defp primary_host(nil), do: nil
-  defp primary_host(config), do: Configuration.primary_host(config)
-
-  defp set_primary_host(nil), do: :ok
-  defp set_primary_host(primary), do: Commander.set_specific_hosts([primary])
-
-  defp configure_verbosity(opts) do
+  def configure_logger(opts) do
     cond do
-      Keyword.get(opts, :verbose) ->
-        Commander.set_verbosity(:debug)
-        Logger.configure(level: :debug)
+      Keyword.get(opts, :verbose) -> Logger.configure(level: :debug)
+      Keyword.get(opts, :quiet) -> Logger.configure(level: :error)
+      true -> :ok
+    end
+  end
 
-      Keyword.get(opts, :quiet) ->
-        Commander.set_verbosity(:error)
-        Logger.configure(level: :error)
+  defp put_host_filter(context, opts) do
+    if hosts = Keyword.get(opts, :hosts) do
+      Context.put_specific_hosts(context, String.split(hosts, ","))
+    else
+      context
+    end
+  end
 
-      true ->
-        :ok
+  defp put_role_filter(context, opts) do
+    if roles = Keyword.get(opts, :roles) do
+      Context.put_specific_roles(context, String.split(roles, ","))
+    else
+      context
+    end
+  end
+
+  defp put_primary_filter(context, opts) do
+    if Keyword.get(opts, :primary) do
+      case Configuration.primary_host(context.config) do
+        nil -> context
+        primary -> Context.put_specific_hosts(context, [primary])
+      end
+    else
+      context
+    end
+  end
+
+  defp put_verbosity(context, opts) do
+    cond do
+      Keyword.get(opts, :verbose) -> Context.put_verbosity(context, :debug)
+      Keyword.get(opts, :quiet) -> Context.put_verbosity(context, :error)
+      true -> context
     end
   end
 end

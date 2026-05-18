@@ -5,14 +5,16 @@ defmodule Xamal.Audit do
 
   import Xamal.Output
 
-  alias Xamal.Commander
+  alias Xamal.{Commander, Context}
   alias Xamal.Commands.Auditor
   alias Xamal.SSH
 
-  def print(_args, _opts) do
-    config = Commander.config()
+  def print(args, opts), do: print(args, opts, Commander.context())
 
-    Enum.each(Commander.hosts(), fn host ->
+  def print(_args, _opts, context) do
+    config = context.config
+
+    Enum.each(Context.hosts(context), fn host ->
       case SSH.execute_command(host, Auditor.reveal(config), ssh_config: config.ssh) do
         {:ok, output} -> puts_by_host(host, output)
         {:error, _} -> puts_by_host(host, "(no audit log)")

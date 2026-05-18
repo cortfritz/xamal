@@ -5,13 +5,15 @@ defmodule Xamal.Versions do
 
   import Xamal.Output
 
-  alias Xamal.Commander
+  alias Xamal.{Commander, Context}
   alias Xamal.Commands.App, as: AppCommand
   alias Xamal.SSH
 
-  def list(_args, _opts) do
-    config = Commander.config()
-    Enum.each(Commander.hosts(), &print_versions(&1, config))
+  def list(args, opts), do: list(args, opts, Commander.context())
+
+  def list(_args, _opts, context) do
+    config = context.config
+    Enum.each(Context.hosts(context), &print_versions(&1, config))
   end
 
   defp print_versions(host, config) do
