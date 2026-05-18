@@ -1,31 +1,43 @@
 [
   layers: [
     mix_tasks: "Mix.Tasks.Xamal.*",
+    task_support: [
+      "Xamal.CommandOptions",
+      "Xamal.ConfigPrinter",
+      "Xamal.Docs",
+      "Xamal.Init",
+      "Xamal.MixTask"
+    ],
     orchestration: [
       "Xamal.Deployment",
-      "Xamal.AppTasks",
-      "Xamal.BuildTasks",
-      "Xamal.ServerTasks",
-      "Xamal.LockTasks",
-      "Xamal.Prune",
-      "Xamal.SecretTasks",
+      "Xamal.*Tasks",
       "Xamal.Audit",
       "Xamal.Details",
+      "Xamal.Prune",
       "Xamal.Remove",
       "Xamal.Versions"
     ],
     runtime: [
       "Xamal.BlueGreen",
+      "Xamal.Context",
       "Xamal.DeployLock",
+      "Xamal.HealthCheck",
       "Xamal.Hooks",
+      "Xamal.LocalIdentity",
       "Xamal.Logs",
       "Xamal.Output",
       "Xamal.Remote",
+      "Xamal.Secrets.Adapters.*",
       "Xamal.TaskHelpers"
     ],
     commands: "Xamal.Commands.*",
-    configuration: "Xamal.Configuration.*",
-    ssh: "Xamal.SSH.*"
+    core: [
+      "Xamal.EnvFile",
+      "Xamal.Secrets",
+      "Xamal.Utils"
+    ],
+    configuration: ["Xamal.Configuration", "Xamal.Configuration.*"],
+    ssh: ["Xamal.SSH", "Xamal.SSH.*"]
   ],
   deps: [
     forbidden: [
@@ -33,20 +45,32 @@
       {:commands, :orchestration},
       {:commands, :runtime},
       {:commands, :ssh},
+      {:commands, :task_support},
       {:configuration, :mix_tasks},
       {:configuration, :orchestration},
       {:configuration, :runtime},
       {:configuration, :ssh},
-      {:runtime, :mix_tasks},
+      {:configuration, :task_support},
       {:orchestration, :mix_tasks},
+      {:orchestration, :task_support},
+      {:runtime, :mix_tasks},
+      {:runtime, :orchestration},
+      {:runtime, :task_support},
       {:ssh, :mix_tasks},
       {:ssh, :orchestration},
-      {:ssh, :runtime}
+      {:ssh, :runtime},
+      {:ssh, :task_support},
+      {:task_support, :mix_tasks},
+      {:task_support, :orchestration},
+      {:task_support, :ssh},
+      {:core, :commands},
+      {:core, :configuration},
+      {:core, :mix_tasks},
+      {:core, :orchestration},
+      {:core, :runtime},
+      {:core, :ssh},
+      {:core, :task_support}
     ]
-  ],
-  source: [
-    forbidden_modules: ["Xamal.CLI", "Xamal.CLI.*", "Xamal.Commander", "Xamal.Shell"],
-    forbidden_files: ["lib/xamal/cli/**", "lib/xamal/shell.ex"]
   ],
   calls: [
     forbidden: [
