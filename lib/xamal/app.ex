@@ -3,7 +3,11 @@ defmodule Xamal.App do
   Application task implementations.
   """
 
-  import Xamal.Shell
+  import Xamal.Hooks
+  import Xamal.Logs
+  import Xamal.Output
+  import Xamal.Remote
+  import Xamal.TaskHelpers
 
   alias Xamal.{Commander, Configuration, EnvFile, SSH}
   alias Xamal.Commands.App, as: AppCommand
@@ -295,7 +299,7 @@ defmodule Xamal.App do
     upload_env_file(host, config, role)
 
     new_port =
-      blue_green_swap(host, config, config.version,
+      Xamal.BlueGreen.swap(host, config, config.version,
         skip_hooks: skip_hooks,
         rollback_version: current_version(host, config)
       )

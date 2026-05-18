@@ -3,7 +3,7 @@ defmodule Xamal.Prune do
   Prunes old releases on selected hosts.
   """
 
-  import Xamal.Shell
+  import Xamal.Output
 
   alias Xamal.{Commander, SSH}
   alias Xamal.Commands.Prune, as: PruneCommand

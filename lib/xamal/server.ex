@@ -3,7 +3,8 @@ defmodule Xamal.Server do
   Server task implementations.
   """
 
-  import Xamal.Shell
+  import Xamal.Logs
+  import Xamal.Output
 
   alias Xamal.{Commander, SSH}
   alias Xamal.Commands.{Caddy, Server, Systemd}

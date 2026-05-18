@@ -3,7 +3,8 @@ defmodule Xamal.Lock do
   Deploy lock task implementations.
   """
 
-  import Xamal.Shell
+  import Xamal.Output
+  import Xamal.Remote
 
   alias Xamal.Commander
   alias Xamal.Commands.Lock, as: LockCommand

@@ -3,7 +3,10 @@ defmodule Xamal.Remove do
   Removes remote application and Caddy resources.
   """
 
-  import Xamal.Shell
+  import Xamal.DeployLock
+  import Xamal.Output
+  import Xamal.Remote
+  import Xamal.TaskHelpers
 
   alias Xamal.App
   alias Xamal.Commander

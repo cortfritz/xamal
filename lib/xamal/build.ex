@@ -3,7 +3,8 @@ defmodule Xamal.Build do
   Release build and distribution task implementations.
   """
 
-  import Xamal.Shell
+  import Xamal.Hooks
+  import Xamal.Output
 
   alias Xamal.{Commander, Configuration, SSH}
   alias Xamal.Commands.{Base, Builder}

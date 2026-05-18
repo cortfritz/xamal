@@ -3,7 +3,8 @@ defmodule Xamal.Details do
   Prints application and proxy status for selected hosts.
   """
 
-  import Xamal.Shell
+  import Xamal.Output
+  import Xamal.Remote
 
   alias Xamal.Commander
   alias Xamal.Commands.App, as: AppCommand

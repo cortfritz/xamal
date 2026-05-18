@@ -1,10 +1,5 @@
 defmodule Mix.Tasks.Xamal.Audit do
   @moduledoc "Prints the remote deployment audit log."
   @shortdoc "Prints audit log"
-  use Mix.Task
-
-  @impl true
-  def run(args) do
-    Xamal.MixTask.run(args, &Xamal.Audit.print/2)
-  end
+  use Xamal.MixTask, run: &Xamal.Audit.print/2
 end

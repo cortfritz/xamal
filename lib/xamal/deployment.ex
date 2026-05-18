@@ -3,7 +3,11 @@ defmodule Xamal.Deployment do
   High-level deployment orchestration.
   """
 
-  import Xamal.Shell
+  import Xamal.DeployLock
+  import Xamal.Hooks
+  import Xamal.Output
+  import Xamal.Remote
+  import Xamal.TaskHelpers
 
   alias Xamal.{App, Build, Commander, Prune, Server}
   alias Xamal.Commands.App, as: AppCommand
@@ -111,7 +115,7 @@ defmodule Xamal.Deployment do
   defp rollback_role(config, role, version) do
     Enum.each(role.hosts, fn host ->
       say("  Rolling back #{host} (#{role.name})...", :magenta)
-      new_port = blue_green_swap(host, config, version)
+      new_port = Xamal.BlueGreen.swap(host, config, version)
       say("  Rolled back #{host} to #{version} (port #{new_port})", :green)
     end)
   end

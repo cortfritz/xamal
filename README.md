@@ -104,20 +104,51 @@ Run `mix xamal.docs <topic>` for detailed reference on any config section.
 
 ## Commands
 
+Run `mix help | grep xamal` to list every available task.
+
+### Deploy
+
 ```
 mix xamal.setup               # Bootstrap servers and deploy
 mix xamal.deploy              # Build, distribute, and boot
 mix xamal.redeploy            # Deploy without bootstrapping
 mix xamal.rollback VERSION    # Roll back to a previous version
+mix xamal.remove              # Remove remote release and proxy resources
+```
+
+### App
+
+```
 mix xamal.app.boot            # Zero-downtime restart
-mix xamal.app.exec CMD        # Run a command on servers
-mix xamal.app.logs -f         # Tail logs
+mix xamal.app.exec CMD        # Run a command in the release context
+mix xamal.app.logs -f         # Tail application logs
 mix xamal.app.maintenance     # Enable maintenance mode (503)
 mix xamal.app.live            # Disable maintenance mode
+mix xamal.app.stop            # Stop application services
+```
+
+### Build, server, and lock
+
+```
+mix xamal.build.deliver       # Build and upload release
+mix xamal.build.push          # Build release tarball
+mix xamal.build.pull          # Upload release tarball
+mix xamal.build.details       # Print build configuration
+mix xamal.server.bootstrap    # Bootstrap target servers
+mix xamal.server.exec CMD     # Run a shell command on servers
 mix xamal.lock.status         # Check deploy lock
-mix xamal.secrets.print       # Show secrets (redacted)
+mix xamal.lock.acquire        # Acquire deploy lock
+mix xamal.lock.release        # Release deploy lock
+```
+
+### Config, docs, and secrets
+
+```
 mix xamal.config              # Show merged configuration
 mix xamal.docs hooks          # Show hook documentation
+mix xamal.secrets.print       # Show secrets (redacted)
+mix xamal.secrets.extract KEY # Print one secret value
+mix xamal.secrets.fetch ADAPTER [OPTIONS]
 ```
 
 ## Hooks

@@ -3,7 +3,7 @@ defmodule Xamal.Versions do
   Lists release versions on selected hosts.
   """
 
-  import Xamal.Shell
+  import Xamal.Output
 
   alias Xamal.Commander
   alias Xamal.Commands.App, as: AppCommand

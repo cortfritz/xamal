@@ -14,6 +14,8 @@ defmodule Xamal.MixTaskIntegration.InitTest do
 
     assert File.exists?(Path.join(dir, "config/xamal.exs"))
     assert File.exists?(Path.join(dir, ".xamal/secrets"))
+    assert File.read!(Path.join(dir, ".gitignore")) =~ ".xamal/secrets*"
+    assert File.read!(Path.join(dir, ".gitignore")) =~ ".xamal/*.env"
 
     # All 8 hooks should be created and executable
     for hook <-
@@ -32,6 +34,13 @@ defmodule Xamal.MixTaskIntegration.InitTest do
     assert content =~ "release:"
     assert content =~ "name: \"xamal\""
     assert content =~ "health_check:"
+
+    mix_exs = File.read!(Path.join(dir, "mix.exs"))
+    assert mix_exs =~ "releases:"
+    assert mix_exs =~ "xamal:"
+    assert mix_exs =~ "version: {:from_app, :xamal}"
+    assert mix_exs =~ "aliases:"
+    assert mix_exs =~ "xamal.info"
   end
 
   test "does not overwrite existing config", %{dir: dir} do
@@ -41,5 +50,20 @@ defmodule Xamal.MixTaskIntegration.InitTest do
 
     content = File.read!(Path.join(dir, "config/xamal.exs"))
     assert content =~ "test-app"
+  end
+
+  test "is idempotent", %{dir: dir} do
+    setup_mix_project(dir)
+    {_output, 0} = xamal(["init"], dir)
+
+    first_config = File.read!(Path.join(dir, "config/xamal.exs"))
+    first_gitignore = File.read!(Path.join(dir, ".gitignore"))
+    first_mix_exs = File.read!(Path.join(dir, "mix.exs"))
+
+    {_output, 0} = xamal(["init"], dir)
+
+    assert File.read!(Path.join(dir, "config/xamal.exs")) == first_config
+    assert File.read!(Path.join(dir, ".gitignore")) == first_gitignore
+    assert File.read!(Path.join(dir, "mix.exs")) == first_mix_exs
   end
 end

@@ -3,6 +3,19 @@ defmodule Xamal.MixTask do
 
   alias Xamal.{Commander, CommandOptions, Configuration}
 
+  defmacro __using__(opts) do
+    callback = Keyword.fetch!(opts, :run)
+
+    quote do
+      use Mix.Task
+
+      @impl true
+      def run(args) do
+        Xamal.MixTask.run(args, unquote(callback))
+      end
+    end
+  end
+
   @global_switches [
     verbose: :boolean,
     quiet: :boolean,

@@ -1,10 +1,5 @@
 defmodule Mix.Tasks.Xamal.Versions do
   @moduledoc "Lists release versions on servers."
   @shortdoc "Lists release versions"
-  use Mix.Task
-
-  @impl true
-  def run(args) do
-    Xamal.MixTask.run(args, &Xamal.Versions.list/2)
-  end
+  use Xamal.MixTask, run: &Xamal.Versions.list/2
 end

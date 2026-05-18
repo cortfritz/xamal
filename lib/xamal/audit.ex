@@ -3,7 +3,7 @@ defmodule Xamal.Audit do
   Prints the remote deployment audit log for selected hosts.
   """
 
-  import Xamal.Shell
+  import Xamal.Output
 
   alias Xamal.Commander
   alias Xamal.Commands.Auditor

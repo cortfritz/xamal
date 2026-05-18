@@ -3,7 +3,7 @@ defmodule Xamal.SecretTasks do
   Secret management task implementations.
   """
 
-  import Xamal.Shell
+  import Xamal.Output
 
   def run(subcommand, args, opts) do
     case subcommand do
