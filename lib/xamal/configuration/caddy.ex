@@ -48,11 +48,18 @@ defmodule Xamal.Configuration.Caddy do
     caddyfile_block(caddy, ~s(respond "Service under maintenance" 503))
   end
 
+  defp http_hostnames(hosts) do
+    hosts
+    |> Enum.map(fn host -> ["http://", host] end)
+    |> Enum.intersperse(", ")
+    |> IO.iodata_to_binary()
+  end
+
   defp caddyfile_block(caddy, directive) do
     matcher =
       case hostnames(caddy) do
         [] -> ":80"
-        hosts when caddy.ssl == false -> Enum.map_join(hosts, ", ", &"http://#{&1}")
+        hosts when caddy.ssl == false -> http_hostnames(hosts)
         hosts -> Enum.join(hosts, ", ")
       end
 

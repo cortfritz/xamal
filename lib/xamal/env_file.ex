@@ -14,10 +14,9 @@ defmodule Xamal.EnvFile do
 
   def encode(env) when is_map(env) do
     env
-    |> Enum.sort_by(fn {k, _v} -> k end)
-    |> Enum.map_join("", fn {key, value} ->
-      "#{key}=#{escape_value(value)}\n"
-    end)
+    |> Enum.sort_by(fn {key, _value} -> key end)
+    |> Enum.map(fn {key, value} -> [to_string(key), "=", escape_value(value), "\n"] end)
+    |> IO.iodata_to_binary()
   end
 
   @doc """
@@ -34,13 +33,14 @@ defmodule Xamal.EnvFile do
     value
     |> String.to_charlist()
     |> Enum.chunk_by(fn c -> c <= 127 end)
-    |> Enum.map_join("", fn chunk ->
+    |> Enum.map(fn chunk ->
       if Enum.all?(chunk, fn c -> c <= 127 end) do
         escape_ascii(List.to_string(chunk))
       else
         List.to_string(chunk)
       end
     end)
+    |> IO.iodata_to_binary()
   end
 
   defp escape_value(value), do: escape_value(to_string(value))
