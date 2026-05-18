@@ -1,6 +1,6 @@
 defmodule Xamal.App do
   @moduledoc """
-  CLI commands for managing the application.
+  Application task implementations.
   """
 
   import Xamal.Shell

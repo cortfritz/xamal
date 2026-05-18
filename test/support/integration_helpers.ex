@@ -41,10 +41,7 @@ defmodule Xamal.IntegrationHelpers do
       limit: 2,
       wait: 1
     ],
-    retain_releases: 3,
-    aliases: [
-      info: "config"
-    ]
+    retain_releases: 3
   """
 
   @secrets_file """

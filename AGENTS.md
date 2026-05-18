@@ -18,8 +18,9 @@ Xamal is a Mix-first Elixir deployment tool for bare-metal Elixir releases over 
 
 - `lib/mix/tasks/` — public Mix task entrypoints
 - `lib/xamal/deployment.ex` — high-level deploy/redeploy/setup/rollback orchestration
-- `lib/xamal/app.ex`, `build.ex`, `server.ex`, `lock.ex`, `prune.ex`, `secrets.ex`, `docs.ex` — command implementations used by Mix tasks
-- `lib/xamal/shell.ex` — shell/UI helpers, SSH execution helpers, hooks, lock handling, blue-green boot flow
+- `lib/xamal/app.ex`, `build.ex`, `server.ex`, `lock.ex`, `prune.ex`, `secret_tasks.ex`, `docs.ex` — command implementations used by Mix tasks
+- `lib/xamal/output.ex`, `hooks.ex`, `remote.ex`, `deploy_lock.ex`, `blue_green.ex`, `logs.ex`, `task_helpers.ex` — runtime helpers for output, hooks, SSH execution, locking, blue-green boot, logs, and task concerns
+- `lib/xamal/shell.ex` — compatibility facade that re-exports runtime helpers for existing command modules
 - `lib/xamal/commands/` — pure functions returning command lists (`["cmd", "arg1"]`), composed with `combine/pipe/chain`
 - `lib/xamal/configuration/` — structs with `new/1` constructors parsing Elixir config data
 - `lib/xamal/context.ex` — explicit runtime context for config, host/role filters, verbosity, lock, and connection state
@@ -32,6 +33,7 @@ Xamal is a Mix-first Elixir deployment tool for bare-metal Elixir releases over 
 - Do not introduce `Xamal.CLI.*` modules; command behavior belongs in `Xamal.*` modules or Mix tasks.
 - Command builder modules return list-of-strings and never execute anything.
 - Config structs are immutable and built from Elixir config.
+- Prefer Mix aliases in host `mix.exs` over custom command aliases in Xamal config.
 - Hooks run locally, not on remote servers.
 - Run `mix ci` before considering a change complete.
 

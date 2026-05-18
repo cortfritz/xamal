@@ -25,10 +25,11 @@ defmodule Xamal.MixTaskIntegration.InitTest do
 
     content = File.read!(Path.join(dir, "config/xamal.exs"))
     assert content =~ "import Config"
-    assert content =~ "service: \"my-app\""
+    assert content =~ "service: \"xamal\""
     assert content =~ "servers:"
     assert content =~ "caddy:"
     assert content =~ "release:"
+    assert content =~ "name: \"xamal\""
     assert content =~ "health_check:"
   end
 

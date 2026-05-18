@@ -8,15 +8,52 @@
       "Xamal.Server",
       "Xamal.Lock",
       "Xamal.Prune",
-      "Xamal.SecretCommands",
+      "Xamal.SecretTasks",
       "Xamal.Audit",
       "Xamal.Details",
       "Xamal.Remove",
       "Xamal.Versions"
     ],
+    runtime: [
+      "Xamal.BlueGreen",
+      "Xamal.DeployLock",
+      "Xamal.Hooks",
+      "Xamal.Logs",
+      "Xamal.Output",
+      "Xamal.Remote",
+      "Xamal.Shell",
+      "Xamal.TaskHelpers"
+    ],
     commands: "Xamal.Commands.*",
     configuration: "Xamal.Configuration.*",
     ssh: "Xamal.SSH.*"
+  ],
+  deps: [
+    forbidden: [
+      {:commands, :mix_tasks},
+      {:commands, :orchestration},
+      {:commands, :runtime},
+      {:commands, :ssh},
+      {:configuration, :mix_tasks},
+      {:configuration, :orchestration},
+      {:configuration, :runtime},
+      {:configuration, :ssh},
+      {:runtime, :mix_tasks},
+      {:orchestration, :mix_tasks},
+      {:ssh, :mix_tasks},
+      {:ssh, :orchestration},
+      {:ssh, :runtime}
+    ]
+  ],
+  source: [
+    forbidden_modules: ["Xamal.CLI", "Xamal.CLI.*"],
+    forbidden_files: ["lib/xamal/cli/**"]
+  ],
+  calls: [
+    forbidden: [
+      {"Xamal.Commands.*", ["File.write", "File.write!", "Xamal.SSH.*"]},
+      {"Mix.Tasks.Xamal.*", ["Xamal.Commands.*", "Xamal.SSH.*"]}
+    ]
   ],
   smells: [
     fixed_shape_map: [

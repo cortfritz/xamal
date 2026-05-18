@@ -1,6 +1,6 @@
 defmodule Xamal.Lock do
   @moduledoc """
-  CLI commands for managing the deploy lock.
+  Deploy lock task implementations.
   """
 
   import Xamal.Shell

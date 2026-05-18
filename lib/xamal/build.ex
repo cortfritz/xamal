@@ -1,6 +1,6 @@
 defmodule Xamal.Build do
   @moduledoc """
-  CLI commands for building and distributing releases.
+  Release build and distribution task implementations.
   """
 
   import Xamal.Shell

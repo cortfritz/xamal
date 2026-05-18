@@ -12,8 +12,7 @@ defmodule Xamal.Commands.LockTest do
     env: %Xamal.Configuration.Env{clear: %{}, secret_keys: [], secrets: nil},
     ssh: %Xamal.Configuration.Ssh{},
     release: %Xamal.Configuration.Release{name: "my_app", mix_env: "prod"},
-    health_check: %Xamal.Configuration.HealthCheck{},
-    aliases: %{}
+    health_check: %Xamal.Configuration.HealthCheck{}
   }
 
   describe "acquire/3" do

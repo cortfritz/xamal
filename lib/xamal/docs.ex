@@ -29,7 +29,6 @@ defmodule Xamal.Docs do
       hooks           Hook scripts (lifecycle events)
       secrets         Secrets management and adapters
       destinations    Multi-environment destinations
-      aliases         Command aliases
     """)
   end
 
@@ -64,7 +63,6 @@ defmodule Xamal.Docs do
       :drain_timeout      Seconds to drain old release (default: 30)
       :retain_releases    Number of old releases to keep (default: 5)
       :primary_role       Primary role name (default: web)
-      :aliases            Command aliases
     """)
   end
 
@@ -348,27 +346,6 @@ defmodule Xamal.Docs do
 
       .xamal/secrets.staging
       .xamal/secrets.production
-    """)
-  end
-
-  defp print_topic("aliases") do
-    IO.puts("""
-    # Command Aliases
-
-    Define shortcuts in config/xamal.exs:
-
-      config :xamal,
-        aliases: [
-          console: ~s(app exec -i "bin/my_app remote"),
-          logs: "app logs -f",
-          info: "config"
-        ]
-
-    ## Usage
-
-      mix xamal.console       # Runs: mix xamal.app.exec -i "bin/my_app remote"
-      mix xamal.app.logs           # Runs: mix xamal.app.logs -f
-      xamal info           # Runs: xamal config
     """)
   end
 

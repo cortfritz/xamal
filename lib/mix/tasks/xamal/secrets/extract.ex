@@ -5,6 +5,6 @@ defmodule Mix.Tasks.Xamal.Secrets.Extract do
 
   @impl true
   def run(args) do
-    Xamal.MixTask.run(args, &Xamal.SecretCommands.extract/2)
+    Xamal.MixTask.run(args, &Xamal.SecretTasks.extract/2)
   end
 end

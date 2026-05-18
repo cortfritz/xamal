@@ -1,6 +1,6 @@
 defmodule Xamal.Commander do
   @moduledoc """
-  Agent-backed runtime context for CLI compatibility.
+  Agent-backed runtime context for task execution.
 
   New orchestration code should prefer passing `%Xamal.Context{}` explicitly.
   """

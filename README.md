@@ -35,7 +35,7 @@ mix deps.get
 ## Quick start
 
 ```sh
-# Generate config stubs and sample hooks
+# Generate config stubs, sample hooks, release config, and helper aliases
 mix xamal.init
 
 # Edit config/xamal.exs and .xamal/secrets, then:
@@ -98,7 +98,7 @@ end
 
 Without this, `mix release my_app` will fail with `Unknown release :my_app`.
 
-Because this is Elixir config, normal Elixir expressions such as `System.get_env/1` are available.
+Because this is Elixir config, normal Elixir expressions such as `System.get_env/1` are available. Use regular Mix aliases in your application's `mix.exs` for command shortcuts.
 
 Run `mix xamal.docs <topic>` for detailed reference on any config section.
 

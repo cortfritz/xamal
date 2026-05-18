@@ -5,6 +5,6 @@ defmodule Mix.Tasks.Xamal.Secrets.Fetch do
 
   @impl true
   def run(args) do
-    Xamal.MixTask.run(args, &Xamal.SecretCommands.fetch/2)
+    Xamal.MixTask.run(args, &Xamal.SecretTasks.fetch/2)
   end
 end

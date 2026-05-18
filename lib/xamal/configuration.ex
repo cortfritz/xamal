@@ -19,8 +19,7 @@ defmodule Xamal.Configuration do
     :env,
     :ssh,
     :release,
-    :health_check,
-    :aliases
+    :health_check
   ]
 
   alias Xamal.Configuration.{
@@ -84,8 +83,7 @@ defmodule Xamal.Configuration do
       env: env_config,
       ssh: Ssh.new(Map.get(raw_config, "ssh", %{})),
       release: Release.new(Map.get(raw_config, "release", %{}), raw_config),
-      health_check: HealthCheck.new(Map.get(raw_config, "health_check", %{})),
-      aliases: parse_aliases(Map.get(raw_config, "aliases", %{}))
+      health_check: HealthCheck.new(Map.get(raw_config, "health_check", %{}))
     }
 
     Validator.validate!(config)
@@ -237,10 +235,6 @@ defmodule Xamal.Configuration do
   defp version_from_config(_raw_config) do
     System.get_env("VERSION") || Xamal.Utils.version_from_git()
   end
-
-  defp parse_aliases(aliases) when is_map(aliases), do: aliases
-
-  defp parse_aliases(_), do: %{}
 
   defp deep_merge(left, right) when is_map(left) and is_map(right) do
     Map.merge(left, right, fn

@@ -1,4 +1,4 @@
-defmodule Xamal.SecretCommands do
+defmodule Xamal.SecretTasks do
   @moduledoc """
   Secret management task implementations.
   """

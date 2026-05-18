@@ -1,6 +1,6 @@
 defmodule Xamal.Prune do
   @moduledoc """
-  CLI command for pruning old releases.
+  Prunes old releases on selected hosts.
   """
 
   import Xamal.Shell

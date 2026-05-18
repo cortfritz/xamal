@@ -1,6 +1,6 @@
 defmodule Xamal.Server do
   @moduledoc """
-  CLI commands for server management.
+  Server task implementations.
   """
 
   import Xamal.Shell
