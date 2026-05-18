@@ -7,12 +7,9 @@ defmodule Xamal.AppTasks do
   import Xamal.Logs
   import Xamal.Output
   import Xamal.Remote
-  import Xamal.TaskHelpers
-
   alias Xamal.Commands.App, as: AppCommand
   alias Xamal.Commands.Base, as: CommandBase
   alias Xamal.Commands.Caddy
-  alias Xamal.Commands.Server
   alias Xamal.Commands.Systemd
   alias Xamal.Configuration
   alias Xamal.Context
@@ -26,18 +23,6 @@ defmodule Xamal.AppTasks do
     run_hook("pre-app-boot", [skip_hooks: skip_hooks], context)
     Enum.each(Context.roles(context), &boot_role(&1, config, skip_hooks, context))
     run_hook("post-app-boot", [skip_hooks: skip_hooks], context)
-  end
-
-  def start(_args, _opts, context) do
-    config = context.config
-    hosts = Context.hosts(context)
-
-    Enum.each(hosts, fn host ->
-      active_port = read_active_port(host, config) || config.caddy.app_port
-      say("  Starting on #{host} (port #{active_port})...", :magenta)
-      cmd = Systemd.start(config, active_port)
-      execute_on(host, cmd, config)
-    end)
   end
 
   def stop(_args, _opts, context) do
@@ -84,72 +69,6 @@ defmodule Xamal.AppTasks do
     dispatch_logs(log_opts, &AppCommand.logs(config, &1), config, [], context)
   end
 
-  def details(_args, _opts, context) do
-    config = context.config
-    hosts = Context.hosts(context)
-
-    Enum.each(hosts, fn host ->
-      active_port = read_active_port(host, config)
-      cmd = AppCommand.details(config, active_port)
-
-      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-        {:ok, output} -> puts_by_host(host, output)
-        {:error, _} -> puts_by_host(host, "(not available)")
-      end
-    end)
-  end
-
-  def version(_args, _opts, context) do
-    config = context.config
-    hosts = Context.hosts(context)
-
-    Enum.each(hosts, fn host ->
-      cmd = AppCommand.current_version(config)
-
-      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-        {:ok, output} -> puts_by_host(host, output, type: "Version")
-        {:error, _} -> puts_by_host(host, "(unknown)")
-      end
-    end)
-  end
-
-  def remove(_args, opts, context) do
-    confirming("This will remove all releases. Are you sure?", opts, fn ->
-      stop([], opts, context)
-      config = context.config
-      Enum.each(Context.hosts(context), &remove_host_releases(&1, config))
-    end)
-  end
-
-  def releases(_args, _opts, context) do
-    config = context.config
-    hosts = Context.hosts(context)
-
-    Enum.each(hosts, fn host ->
-      cmd = AppCommand.list_releases(config)
-
-      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-        {:ok, output} -> puts_by_host(host, output, type: "Releases")
-        {:error, _} -> puts_by_host(host, "(none)")
-      end
-    end)
-  end
-
-  def stale_releases(_args, _opts, context) do
-    config = context.config
-    keep = Xamal.Configuration.retain_releases(config)
-    hosts = Context.hosts(context)
-
-    Enum.each(hosts, fn host ->
-      cmd = AppCommand.stale_releases(config, keep)
-
-      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-        {:ok, output} -> puts_by_host(host, output, type: "Stale Releases")
-        {:error, _} -> puts_by_host(host, "(none)")
-      end
-    end)
-  end
-
   def maintenance(_args, opts, context) do
     config = context.config
     hosts = Context.hosts(context)
@@ -189,8 +108,6 @@ defmodule Xamal.AppTasks do
 
     run_hook("post-caddy-reload", [skip_hooks: skip_hooks], context)
   end
-
-  # Private
 
   defp boot_role(role, config, skip_hooks, context) do
     role
@@ -249,15 +166,6 @@ defmodule Xamal.AppTasks do
     end
   end
 
-  defp remove_host_releases(host, config) do
-    case SSH.execute_command(host, Server.remove_service_directory(config),
-           ssh_config: config.ssh
-         ) do
-      {:ok, _} -> say("  Removed releases on #{host}", :green)
-      {:error, reason} -> say("  Error on #{host}: #{inspect(reason)}", :red)
-    end
-  end
-
   defp do_boot_host(config, role, host, skip_hooks, context) do
     upload_env_file(host, config, role)
 
@@ -291,12 +199,5 @@ defmodule Xamal.AppTasks do
     ssh_exec(host, CommandBase.make_directory(Path.dirname(env_path)), config)
     ssh_exec(host, CommandBase.write([["echo", "'#{env_content}'"], [env_path]]), config)
     ssh_exec(host, Systemd.write_env_symlink(config, role), config)
-  end
-
-  defp execute_on(host, cmd, config) do
-    case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-      {:ok, output} -> if output != "", do: IO.puts(output)
-      {:error, reason} -> say("Error on #{host}: #{inspect(reason)}", :red)
-    end
   end
 end

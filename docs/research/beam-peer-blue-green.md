@@ -123,7 +123,7 @@ When the number of listeners changes (peer starting/stopping), in-flight TCP han
    - Add `{:xamal_deploy, "~> 0.1"}` to mix.exs
    - Split `Application.start/2` into parent + peer sections (~5-10 lines changed)
 
-3. **Xamal CLI changes**
+3. **Xamal task changes**
    - Deploy command: build release, SCP tarball, trigger upgrade
    - Trigger mechanism options:
      a. **Poll local directory** — app watches e.g. `/opt/myapp/releases/` for new tarballs

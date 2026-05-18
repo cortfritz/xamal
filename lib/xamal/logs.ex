@@ -16,7 +16,7 @@ defmodule Xamal.Logs do
     log_opts
   end
 
-  def dispatch_logs(log_opts, build_cmd, config, opts \\ [], context) do
+  def dispatch_logs(log_opts, build_cmd, config, opts, context) do
     hosts = Context.hosts(context)
 
     if Keyword.get(log_opts, :follow, false) do

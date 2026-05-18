@@ -18,12 +18,12 @@ Xamal is a Mix-first Elixir deployment tool for bare-metal Elixir releases over 
 
 - `lib/mix/tasks/` — public Mix task entrypoints, usually `use Xamal.MixTask` for config-loading tasks
 - `lib/xamal/deployment.ex` — high-level deploy/redeploy/setup/rollback orchestration
-- `lib/xamal/app.ex`, `build.ex`, `server.ex`, `lock.ex`, `prune.ex`, `secret_tasks.ex`, `docs.ex` — command implementations used by Mix tasks
+- `lib/xamal/*_tasks.ex`, `prune.ex`, `audit.ex`, `details.ex`, `remove.ex`, `versions.ex` — task implementations used by Mix tasks
 - `lib/xamal/output.ex`, `hooks.ex`, `remote.ex`, `deploy_lock.ex`, `blue_green.ex`, `logs.ex`, `task_helpers.ex` — runtime helpers for output, hooks, SSH execution, locking, blue-green boot, logs, and task concerns
+- `lib/xamal/secrets/adapters/` — secret-manager adapter implementations used by `Xamal.SecretTasks`
 - `lib/xamal/commands/` — pure functions returning command lists (`["cmd", "arg1"]`), composed with `combine/pipe/chain`
 - `lib/xamal/configuration/` — structs with `new/1` constructors parsing Elixir config data
 - `lib/xamal/context.ex` — explicit runtime context for config, host/role filters, verbosity, lock, and connection state
-- `lib/xamal/commander.ex` — compatibility Agent wrapper around `Xamal.Context`
 
 ## Conventions
 

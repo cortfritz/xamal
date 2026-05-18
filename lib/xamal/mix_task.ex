@@ -93,10 +93,7 @@ defmodule Xamal.MixTask do
   end
 
   defp dispatch(callback, args, opts, context) do
-    case :erlang.fun_info(callback, :arity) do
-      {:arity, 3} -> callback.(args, opts, context)
-      {:arity, 2} -> callback.(args, opts)
-    end
+    callback.(args, opts, context)
   end
 
   defp invoke(module, function, args, opts, context) do

@@ -6,10 +6,9 @@ defmodule Xamal.BlueGreen do
   import Xamal.Remote
 
   alias Xamal.Commands.{Caddy, Server, Systemd}
-  alias Xamal.{Configuration, Context, HealthCheck}
+  alias Xamal.{Configuration, HealthCheck}
 
-  def swap(host, config, version, opts \\ [], context \\ nil) do
-    context = context || Context.new(config)
+  def swap(host, config, version, opts, context) do
     ports = select_ports(host, config)
     ssh_exec(host, Server.link_current(config, version), config)
     ssh_exec(host, Systemd.start(config, ports.new), config)
