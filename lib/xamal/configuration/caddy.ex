@@ -49,10 +49,7 @@ defmodule Xamal.Configuration.Caddy do
   end
 
   defp http_hostnames(hosts) do
-    hosts
-    |> Enum.map(fn host -> ["http://", host] end)
-    |> Enum.intersperse(", ")
-    |> IO.iodata_to_binary()
+    Enum.map_join(hosts, ", ", fn host -> URI.to_string(%URI{scheme: "http", host: host}) end)
   end
 
   defp caddyfile_block(caddy, directive) do

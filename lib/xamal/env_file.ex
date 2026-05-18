@@ -32,18 +32,19 @@ defmodule Xamal.EnvFile do
   defp escape_value(value) when is_binary(value) do
     value
     |> String.to_charlist()
-    |> Enum.chunk_by(fn c -> c <= 127 end)
-    |> Enum.map(fn chunk ->
-      if Enum.all?(chunk, fn c -> c <= 127 end) do
-        escape_ascii(List.to_string(chunk))
-      else
-        List.to_string(chunk)
-      end
-    end)
+    |> Enum.chunk_by(&ascii?/1)
+    |> Enum.map(&escape_chunk/1)
     |> IO.iodata_to_binary()
   end
 
   defp escape_value(value), do: escape_value(to_string(value))
+
+  defp escape_chunk(chunk) do
+    string = List.to_string(chunk)
+    if Enum.all?(chunk, &ascii?/1), do: escape_ascii(string), else: string
+  end
+
+  defp ascii?(char), do: char <= 127
 
   defp escape_ascii(value) do
     value

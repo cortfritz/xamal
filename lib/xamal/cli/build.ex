@@ -5,6 +5,10 @@ defmodule Xamal.CLI.Build do
 
   import Xamal.CLI.Base
 
+  alias Xamal.{Commander, Configuration, SSH}
+  alias Xamal.Commands.{Base, Builder}
+  alias Xamal.Configuration.Builder, as: BuildConfig
+
   def run(subcommand, args, opts) do
     case subcommand do
       "deliver" -> deliver(args, opts)
@@ -24,12 +28,12 @@ defmodule Xamal.CLI.Build do
   end
 
   def push(_args, _opts) do
-    config = Xamal.Commander.config()
-    docker? = Xamal.Configuration.Builder.docker?(config.builder)
+    config = Commander.config()
+    docker? = BuildConfig.docker?(config.builder)
 
     if docker? do
       verify_docker_available!()
-      image = Xamal.Configuration.Builder.docker_image(config.builder)
+      image = BuildConfig.docker_image(config.builder)
       say("Building release in Docker (#{image})...", :magenta)
     else
       say("Building release locally...", :magenta)
@@ -37,28 +41,28 @@ defmodule Xamal.CLI.Build do
 
     build_cmd =
       if docker? do
-        Xamal.Commands.Builder.build_in_docker(config)
+        Builder.build_in_docker(config)
       else
-        Xamal.Commands.Builder.build_release(config)
+        Builder.build_release(config)
       end
 
-    cmd_str = Xamal.Commands.Base.to_command_string(build_cmd)
+    cmd_str = Base.to_command_string(build_cmd)
 
     case System.cmd("sh", ["-c", cmd_str], stderr_to_stdout: true, into: IO.stream(:stdio, :line)) do
       {_, 0} ->
         say("Release built successfully", :green)
 
         say("Creating tarball...", :magenta)
-        tarball_cmd = Xamal.Commands.Builder.create_tarball(config)
-        tarball_str = Xamal.Commands.Base.to_command_string(tarball_cmd)
+        tarball_cmd = Builder.create_tarball(config)
+        tarball_str = Base.to_command_string(tarball_cmd)
 
         case System.cmd("sh", ["-c", tarball_str], stderr_to_stdout: true) do
-          {_, 0} -> say("Tarball created: #{Xamal.Commands.Builder.tarball_path(config)}", :green)
+          {_, 0} -> say("Tarball created: #{Builder.tarball_path(config)}", :green)
           {output, _} -> raise "Failed to create tarball: #{output}"
         end
 
       {_, code} when docker? ->
-        image = Xamal.Configuration.Builder.docker_image(config.builder)
+        image = BuildConfig.docker_image(config.builder)
 
         raise """
         Docker build failed with exit code #{code}.
@@ -110,10 +114,10 @@ defmodule Xamal.CLI.Build do
   end
 
   def pull(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
-    tarball_path = Xamal.Commands.Builder.tarball_path(config)
+    tarball_path = Builder.tarball_path(config)
 
     unless File.exists?(tarball_path) do
       raise "Tarball not found at #{tarball_path}. Run 'xamal build push' first."
@@ -123,20 +127,20 @@ defmodule Xamal.CLI.Build do
       say("  Uploading to #{host}...", :magenta)
 
       version = config.version
-      remote_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+      remote_dir = "#{Configuration.releases_directory(config)}/#{version}"
 
       # Create remote directory
-      mkdir_cmd = Xamal.Commands.Base.make_directory(remote_dir)
-      Xamal.SSH.execute_command(host, mkdir_cmd, ssh_config: config.ssh)
+      mkdir_cmd = Base.make_directory(remote_dir)
+      SSH.execute_command(host, mkdir_cmd, ssh_config: config.ssh)
 
       # Upload via SFTP (works with key_data)
-      remote_path = "#{remote_dir}/#{Xamal.Commands.Builder.tarball_name(config)}"
+      remote_path = "#{remote_dir}/#{Builder.tarball_name(config)}"
 
-      case Xamal.SSH.upload(host, tarball_path, remote_path, ssh_config: config.ssh) do
+      case SSH.upload(host, tarball_path, remote_path, ssh_config: config.ssh) do
         {:ok, _} ->
           # Unpack on remote
-          unpack_cmd = Xamal.Commands.Builder.unpack_tarball(config)
-          Xamal.SSH.execute_command(host, unpack_cmd, ssh_config: config.ssh)
+          unpack_cmd = Builder.unpack_tarball(config)
+          SSH.execute_command(host, unpack_cmd, ssh_config: config.ssh)
           say("  Deployed to #{host}", :green)
 
         {:error, reason} ->
@@ -146,14 +150,14 @@ defmodule Xamal.CLI.Build do
   end
 
   def details(_args, _opts) do
-    config = Xamal.Commander.config()
+    config = Commander.config()
 
     IO.puts("Build configuration:")
     IO.puts("  Release name: #{config.release.name}")
     IO.puts("  Mix env: #{config.release.mix_env}")
     IO.puts("  Version: #{config.version}")
     IO.puts("  Builder: #{builder_type(config.builder)}")
-    IO.puts("  Tarball: #{Xamal.Commands.Builder.tarball_path(config)}")
+    IO.puts("  Tarball: #{Builder.tarball_path(config)}")
   end
 
   def help do
@@ -170,8 +174,8 @@ defmodule Xamal.CLI.Build do
 
   defp builder_type(builder) do
     cond do
-      Xamal.Configuration.Builder.docker?(builder) -> "docker"
-      Xamal.Configuration.Builder.remote?(builder) -> "remote (#{builder.remote})"
+      BuildConfig.docker?(builder) -> "docker"
+      BuildConfig.remote?(builder) -> "remote (#{builder.remote})"
       true -> "local"
     end
   end

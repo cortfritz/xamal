@@ -95,15 +95,14 @@ defmodule Xamal.Utils do
   Parse a "host:port" string or just "host" into {host, port}.
   """
   def parse_host_port(str, default_port \\ 22) do
-    case String.split(str, ":", parts: 2) do
-      [host, port] ->
-        case Integer.parse(port) do
-          {p, ""} -> {host, p}
-          _ -> {str, default_port}
-        end
+    uri = URI.parse("//#{str}")
 
-      [host] ->
-        {host, default_port}
+    if uri.host && uri.port do
+      {uri.host, uri.port}
+    else
+      {str, default_port}
     end
+  rescue
+    URI.Error -> {str, default_port}
   end
 end
