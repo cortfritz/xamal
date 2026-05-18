@@ -5,6 +5,13 @@ defmodule Xamal.CLI.App do
 
   import Xamal.CLI.Base
 
+  alias Xamal.{Commander, Configuration, EnvFile, SSH}
+  alias Xamal.Commands.App, as: AppCommand
+  alias Xamal.Commands.Base, as: CommandBase
+  alias Xamal.Commands.Caddy
+  alias Xamal.Commands.Server
+  alias Xamal.Commands.Systemd
+
   @commands %{
     "boot" => :boot,
     "start" => :start,
@@ -28,64 +35,35 @@ defmodule Xamal.CLI.App do
   end
 
   def boot(_args, opts) do
-    config = Xamal.Commander.config()
-    roles = Xamal.Commander.roles()
-    app_port = config.caddy.app_port
-    alt_port = Xamal.Configuration.Caddy.alt_port(config.caddy)
-
-    boot_config = config.boot
+    config = Commander.config()
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
     run_hook("pre-app-boot", skip_hooks: skip_hooks)
-
-    Enum.each(roles, fn role ->
-      limit = Xamal.Configuration.Boot.resolved_limit(boot_config, length(role.hosts))
-      wait = boot_config.wait
-
-      hosts_batches =
-        if limit do
-          Enum.chunk_every(role.hosts, limit)
-        else
-          [role.hosts]
-        end
-
-      Enum.with_index(hosts_batches, fn batch, idx ->
-        if idx > 0 and wait do
-          say("  Waiting #{wait}s before next batch...", :magenta)
-          Process.sleep(wait * 1000)
-        end
-
-        Enum.each(batch, fn host ->
-          say("  Booting #{role.name} on #{host}...", :magenta)
-          do_boot_host(config, role, host, app_port, alt_port, skip_hooks)
-        end)
-      end)
-    end)
-
+    Enum.each(Commander.roles(), &boot_role(&1, config, skip_hooks))
     run_hook("post-app-boot", skip_hooks: skip_hooks)
   end
 
   def start(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
       active_port = read_active_port(host, config) || config.caddy.app_port
       say("  Starting on #{host} (port #{active_port})...", :magenta)
-      cmd = Xamal.Commands.Systemd.start(config, active_port)
+      cmd = Systemd.start(config, active_port)
       execute_on(host, cmd, config)
     end)
   end
 
   def stop(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
       say("  Stopping on #{host}...", :magenta)
-      cmd = Xamal.Commands.Systemd.stop_all(config)
+      cmd = Systemd.stop_all(config)
 
-      case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
         {:ok, _} -> say("  Stopped on #{host}", :green)
         {:error, _} -> say("  App not running on #{host}", :yellow)
       end
@@ -93,64 +71,43 @@ defmodule Xamal.CLI.App do
   end
 
   def exec(args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
+    {exec_opts, command} = parse_exec(args)
 
-    {exec_opts, cmd_args, _} =
-      OptionParser.parse(args, switches: [interactive: :boolean], aliases: [i: :interactive])
-
-    command = Enum.join(cmd_args, " ")
-    interactive = Keyword.get(exec_opts, :interactive, false)
-
-    if interactive do
-      # Interactive: run on first host only via native Erlang SSH
-      host = hd(hosts)
-      active_port = read_active_port(host, config)
-
-      cmd = Xamal.Commands.App.exec(config, command, interactive: true, port: active_port)
-      cmd_str = Xamal.Commands.Base.to_command_string(cmd)
-
-      say("Connecting to #{host}...", :magenta)
-      Xamal.SSH.interactive_exec(host, cmd_str, ssh_config: config.ssh)
+    if Keyword.get(exec_opts, :interactive, false) do
+      interactive_exec(hd(hosts), config, command)
     else
-      Enum.each(hosts, fn host ->
-        active_port = read_active_port(host, config)
-        cmd = Xamal.Commands.App.exec(config, command, port: active_port)
-
-        case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-          {:ok, output} -> puts_by_host(host, output)
-          {:error, reason} -> puts_by_host(host, "Error: #{inspect(reason)}")
-        end
-      end)
+      Enum.each(hosts, &remote_exec(&1, config, command))
     end
   end
 
   def logs(args, _opts) do
-    config = Xamal.Commander.config()
+    config = Commander.config()
     log_opts = parse_log_opts(args)
 
     # For follow mode, resolve the active port for the first host
     log_opts =
       if Keyword.get(log_opts, :follow, false) do
-        host = hd(Xamal.Commander.hosts())
+        host = hd(Commander.hosts())
         active_port = read_active_port(host, config)
         if active_port, do: Keyword.put(log_opts, :port, active_port), else: log_opts
       else
         log_opts
       end
 
-    dispatch_logs(log_opts, &Xamal.Commands.App.logs(config, &1), config)
+    dispatch_logs(log_opts, &AppCommand.logs(config, &1), config)
   end
 
   def details(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
       active_port = read_active_port(host, config)
-      cmd = Xamal.Commands.App.details(config, active_port)
+      cmd = AppCommand.details(config, active_port)
 
-      case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
         {:ok, output} -> puts_by_host(host, output)
         {:error, _} -> puts_by_host(host, "(not available)")
       end
@@ -158,13 +115,13 @@ defmodule Xamal.CLI.App do
   end
 
   def version(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
-      cmd = Xamal.Commands.App.current_version(config)
+      cmd = AppCommand.current_version(config)
 
-      case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
         {:ok, output} -> puts_by_host(host, output, type: "Version")
         {:error, _} -> puts_by_host(host, "(unknown)")
       end
@@ -174,29 +131,19 @@ defmodule Xamal.CLI.App do
   def remove(_args, opts) do
     confirming("This will remove all releases. Are you sure?", opts, fn ->
       stop([], opts)
-
-      config = Xamal.Commander.config()
-      hosts = Xamal.Commander.hosts()
-
-      Enum.each(hosts, fn host ->
-        cmd = Xamal.Commands.Server.remove_service_directory(config)
-
-        case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
-          {:ok, _} -> say("  Removed releases on #{host}", :green)
-          {:error, reason} -> say("  Error on #{host}: #{inspect(reason)}", :red)
-        end
-      end)
+      config = Commander.config()
+      Enum.each(Commander.hosts(), &remove_host_releases(&1, config))
     end)
   end
 
   def releases(_args, _opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
-      cmd = Xamal.Commands.App.list_releases(config)
+      cmd = AppCommand.list_releases(config)
 
-      case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
         {:ok, output} -> puts_by_host(host, output, type: "Releases")
         {:error, _} -> puts_by_host(host, "(none)")
       end
@@ -204,14 +151,14 @@ defmodule Xamal.CLI.App do
   end
 
   def stale_releases(_args, _opts) do
-    config = Xamal.Commander.config()
-    keep = Xamal.Configuration.retain_releases(config)
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    keep = Configuration.retain_releases(config)
+    hosts = Commander.hosts()
 
     Enum.each(hosts, fn host ->
-      cmd = Xamal.Commands.App.stale_releases(config, keep)
+      cmd = AppCommand.stale_releases(config, keep)
 
-      case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
         {:ok, output} -> puts_by_host(host, output, type: "Stale Releases")
         {:error, _} -> puts_by_host(host, "(none)")
       end
@@ -219,8 +166,8 @@ defmodule Xamal.CLI.App do
   end
 
   def maintenance(_args, opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
     say("Enabling maintenance mode...", :magenta)
@@ -228,9 +175,9 @@ defmodule Xamal.CLI.App do
     run_hook("pre-caddy-reload", skip_hooks: skip_hooks)
 
     Enum.each(hosts, fn host ->
-      cmd = Xamal.Commands.Caddy.write_maintenance_caddyfile(config)
-      Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh)
-      Xamal.SSH.execute_command(host, Xamal.Commands.Caddy.reload(config), ssh_config: config.ssh)
+      cmd = Caddy.write_maintenance_caddyfile(config)
+      SSH.execute_command(host, cmd, ssh_config: config.ssh)
+      SSH.execute_command(host, Caddy.reload(config), ssh_config: config.ssh)
       say("  Maintenance mode enabled on #{host}", :green)
     end)
 
@@ -238,8 +185,8 @@ defmodule Xamal.CLI.App do
   end
 
   def live(_args, opts) do
-    config = Xamal.Commander.config()
-    hosts = Xamal.Commander.hosts()
+    config = Commander.config()
+    hosts = Commander.hosts()
     skip_hooks = Keyword.get(opts, :skip_hooks, false)
 
     say("Disabling maintenance mode...", :magenta)
@@ -249,9 +196,9 @@ defmodule Xamal.CLI.App do
     Enum.each(hosts, fn host ->
       active_port = read_active_port(host, config) || config.caddy.app_port
 
-      cmd = Xamal.Commands.Caddy.write_caddyfile(config, active_port)
-      Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh)
-      Xamal.SSH.execute_command(host, Xamal.Commands.Caddy.reload(config), ssh_config: config.ssh)
+      cmd = Caddy.write_caddyfile(config, active_port)
+      SSH.execute_command(host, cmd, ssh_config: config.ssh)
+      SSH.execute_command(host, Caddy.reload(config), ssh_config: config.ssh)
       say("  Live mode restored on #{host} (port #{active_port})", :green)
     end)
 
@@ -280,41 +227,101 @@ defmodule Xamal.CLI.App do
 
   # Private
 
-  defp do_boot_host(config, role, host, _app_port, _alt_port, skip_hooks) do
-    version = config.version
+  defp boot_role(role, config, skip_hooks) do
+    role
+    |> host_batches(config.boot)
+    |> Enum.with_index()
+    |> Enum.each(fn {batch, index} -> boot_batch(batch, index, role, config, skip_hooks) end)
+  end
 
-    # Upload env file
+  defp host_batches(role, boot_config) do
+    case Configuration.Boot.resolved_limit(boot_config, length(role.hosts)) do
+      nil -> [role.hosts]
+      limit -> Enum.chunk_every(role.hosts, limit)
+    end
+  end
+
+  defp boot_batch(batch, index, role, config, skip_hooks) do
+    maybe_wait_before_batch(index, config.boot.wait)
+
+    Enum.each(batch, fn host ->
+      say("  Booting #{role.name} on #{host}...", :magenta)
+      do_boot_host(config, role, host, skip_hooks)
+    end)
+  end
+
+  defp maybe_wait_before_batch(index, wait) when index > 0 and not is_nil(wait) do
+    say("  Waiting #{wait}s before next batch...", :magenta)
+    Process.sleep(wait * 1000)
+  end
+
+  defp maybe_wait_before_batch(_index, _wait), do: :ok
+
+  defp parse_exec(args) do
+    {exec_opts, cmd_args, _invalid} =
+      OptionParser.parse(args, switches: [interactive: :boolean], aliases: [i: :interactive])
+
+    {exec_opts, Enum.join(cmd_args, " ")}
+  end
+
+  defp interactive_exec(host, config, command) do
+    active_port = read_active_port(host, config)
+    cmd = AppCommand.exec(config, command, interactive: true, port: active_port)
+
+    say("Connecting to #{host}...", :magenta)
+    SSH.interactive_exec(host, CommandBase.to_command_string(cmd), ssh_config: config.ssh)
+  end
+
+  defp remote_exec(host, config, command) do
+    active_port = read_active_port(host, config)
+    cmd = AppCommand.exec(config, command, port: active_port)
+
+    case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+      {:ok, output} -> puts_by_host(host, output)
+      {:error, reason} -> puts_by_host(host, "Error: #{inspect(reason)}")
+    end
+  end
+
+  defp remove_host_releases(host, config) do
+    case SSH.execute_command(host, Server.remove_service_directory(config),
+           ssh_config: config.ssh
+         ) do
+      {:ok, _} -> say("  Removed releases on #{host}", :green)
+      {:error, reason} -> say("  Error on #{host}: #{inspect(reason)}", :red)
+    end
+  end
+
+  defp do_boot_host(config, role, host, skip_hooks) do
     upload_env_file(host, config, role)
 
-    # Save old version for rollback on health check failure
-    old_version =
-      case ssh_exec(host, Xamal.Commands.App.current_version(config), config) do
-        {:ok, v} -> String.trim(v)
-        {:error, _} -> nil
-      end
-
-    # Blue-green swap: symlink, start, health check, caddy, drain, enable/disable
     new_port =
-      blue_green_swap(host, config, version,
+      blue_green_swap(host, config, config.version,
         skip_hooks: skip_hooks,
-        rollback_version: old_version
+        rollback_version: current_version(host, config)
       )
 
     say("  Booted #{role.name} on #{host} (port #{new_port})", :green)
   end
 
-  defp upload_env_file(host, config, role) do
-    env = Xamal.Configuration.Role.resolved_env(role, config.env)
-    env_content = Xamal.EnvFile.encode(Xamal.Configuration.Env.to_map(env))
-    env_path = Xamal.Configuration.Role.secrets_path(role, config)
+  defp current_version(host, config) do
+    case ssh_exec(host, AppCommand.current_version(config), config) do
+      {:ok, version} -> String.trim(version)
+      {:error, _} -> nil
+    end
+  end
 
-    ssh_exec(host, Xamal.Commands.Base.make_directory(Path.dirname(env_path)), config)
-    ssh_exec(host, Xamal.Commands.Base.write([["echo", "'#{env_content}'"], [env_path]]), config)
-    ssh_exec(host, Xamal.Commands.Systemd.write_env_symlink(config, role), config)
+  defp upload_env_file(host, config, role) do
+    env = Configuration.Role.resolved_env(role, config.env)
+    env_content = EnvFile.encode(Configuration.Env.to_map(env))
+    env_path = Configuration.Role.secrets_path(role, config)
+
+    ssh_exec(host, CommandBase.make_directory(Path.dirname(env_path)), config)
+    ssh_exec(host, CommandBase.write([["echo", "'#{env_content}'"], [env_path]]), config)
+    ssh_exec(host, Systemd.write_env_symlink(config, role), config)
   end
 
   defp execute_on(host, cmd, config) do
-    case Xamal.SSH.execute_command(host, cmd, ssh_config: config.ssh) do
+    case SSH.execute_command(host, cmd, ssh_config: config.ssh) do
       {:ok, output} -> if output != "", do: IO.puts(output)
       {:error, reason} -> say("Error on #{host}: #{inspect(reason)}", :red)
     end
