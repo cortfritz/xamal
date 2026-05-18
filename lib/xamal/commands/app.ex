@@ -50,12 +50,7 @@ defmodule Xamal.Commands.App do
     bin = release_bin(config)
     current = Xamal.Configuration.current_link(config)
 
-    if port do
-      release_name = config.release.name
-      ["RELEASE_NODE=#{release_name}_#{port}", "#{current}/#{bin}", "stop"]
-    else
-      ["#{current}/#{bin}", "stop"]
-    end
+    stop_command(config, current, bin, port)
   end
 
   @doc """
@@ -65,12 +60,7 @@ defmodule Xamal.Commands.App do
     bin = release_bin(config)
     release_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
 
-    if port do
-      release_name = config.release.name
-      ["RELEASE_NODE=#{release_name}_#{port}", "#{release_dir}/#{bin}", "stop"]
-    else
-      ["#{release_dir}/#{bin}", "stop"]
-    end
+    stop_command(config, release_dir, bin, port)
   end
 
   @doc """
@@ -216,6 +206,15 @@ defmodule Xamal.Commands.App do
       ["echo", "'PID:'"],
       pid_cmd
     ])
+  end
+
+  defp stop_command(config, release_dir, bin, port) do
+    if port do
+      release_name = config.release.name
+      ["RELEASE_NODE=#{release_name}_#{port}", "#{release_dir}/#{bin}", "stop"]
+    else
+      ["#{release_dir}/#{bin}", "stop"]
+    end
   end
 
   defp release_bin(config) do

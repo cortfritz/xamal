@@ -179,9 +179,8 @@ defmodule Xamal.SSH do
     exec_result = :ssh_connection.exec(conn, channel, String.to_charlist(command), 30_000)
     true = exec_result in [:ok, :success]
 
-    # Save terminal state and set raw mode
-    old_stty = :os.cmd(~c"stty -F /dev/tty -g") |> to_string() |> String.trim()
-    :os.cmd(~c"stty -F /dev/tty raw -echo")
+    old_stty = stty(["-F", "/dev/tty", "-g"]) |> String.trim()
+    stty(["-F", "/dev/tty", "raw", "-echo"])
 
     # Steal fd 0 for raw keystroke reading. Uses fd 2 (stderr) as the port output fd
     # so we don't steal fd 1 from prim_tty — IO.write still works for channel output.
@@ -196,7 +195,14 @@ defmodule Xamal.SSH do
         _, _ -> :ok
       end
 
-      :os.cmd(String.to_charlist("stty -F /dev/tty #{old_stty}"))
+      stty(["-F", "/dev/tty", old_stty])
+    end
+  end
+
+  defp stty(args) do
+    case System.cmd("stty", args, stderr_to_stdout: true) do
+      {output, 0} -> output
+      {output, _code} -> raise "stty failed: #{output}"
     end
   end
 

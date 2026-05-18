@@ -20,6 +20,9 @@ defmodule Xamal.CLI do
     help: :boolean
   ]
 
+  alias Xamal.CLI.{App, Build, Docs, Lock, Main, Prune, Secrets, Server}
+  alias Xamal.{Commander, Configuration}
+
   @global_aliases [
     v: :verbose,
     q: :quiet,
@@ -32,55 +35,34 @@ defmodule Xamal.CLI do
     y: :confirmed
   ]
 
+  @main_commands %{
+    "setup" => {Main, :setup},
+    "deploy" => {Main, :deploy},
+    "redeploy" => {Main, :redeploy},
+    "rollback" => {Main, :rollback},
+    "details" => {Main, :details},
+    "versions" => {Main, :versions},
+    "audit" => {Main, :audit},
+    "config" => {Main, :config},
+    "remove" => {Main, :remove},
+    "prune" => {Prune, :prune}
+  }
+
+  @subcommands %{
+    "app" => App,
+    "build" => Build,
+    "lock" => Lock,
+    "secrets" => Secrets,
+    "server" => Server
+  }
+
   def main(argv) do
-    # Ensure the OTP application is started (for escript)
     Application.ensure_all_started(:xamal)
     Logger.configure(level: :info)
 
-    if argv == ["--version"] do
-      print_version()
-      System.halt(0)
-    end
-
-    {head_opts, args, invalid} =
-      OptionParser.parse_head(argv, strict: @global_switches, aliases: @global_aliases)
-
-    if invalid != [] do
-      flags = Enum.map_join(invalid, ", ", fn {flag, _} -> flag end)
-      IO.puts(:stderr, "Unknown option: #{flags}")
-      System.halt(1)
-    end
-
-    # Extract command, then parse trailing global opts from the rest
-    # (e.g. `xamal config -d staging` where -d comes after the command)
-    {command, rest} =
-      case args do
-        [] -> {nil, []}
-        [cmd | r] -> {cmd, r}
-      end
-
-    {tail_opts, rest, _} =
-      OptionParser.parse_head(rest, switches: @global_switches, aliases: @global_aliases)
-
-    global_opts = Keyword.merge(head_opts, tail_opts)
-
-    if Keyword.get(global_opts, :help) do
-      if command do
-        dispatch_help(command, ["--help"]) || print_help()
-      else
-        print_help()
-      end
-
-      System.halt(0)
-    end
-
-    case command do
-      nil -> print_help()
-      "version" -> print_version()
-      "init" -> Xamal.CLI.Main.init(rest, global_opts)
-      "docs" -> Xamal.CLI.Docs.run(rest)
-      _ -> dispatch(command, rest, global_opts)
-    end
+    argv
+    |> parse_args()
+    |> run_command()
   rescue
     e ->
       IO.puts(:stderr, "Error: #{Exception.message(e)}")
@@ -100,8 +82,56 @@ defmodule Xamal.CLI do
       System.halt(1)
   end
 
+  defp parse_args(["--version"]), do: {:version, [], []}
+
+  defp parse_args(argv) do
+    {head_opts, args, invalid} =
+      OptionParser.parse_head(argv, strict: @global_switches, aliases: @global_aliases)
+
+    ensure_valid_options!(invalid)
+
+    {command, rest} = split_command(args)
+
+    {tail_opts, rest, _invalid} =
+      OptionParser.parse_head(rest, switches: @global_switches, aliases: @global_aliases)
+
+    {command, rest, Keyword.merge(head_opts, tail_opts)}
+  end
+
+  defp ensure_valid_options!([]), do: :ok
+
+  defp ensure_valid_options!(invalid) do
+    flags = Enum.map_join(invalid, ", ", fn {flag, _} -> flag end)
+    IO.puts(:stderr, "Unknown option: #{flags}")
+    System.halt(1)
+  end
+
+  defp split_command([]), do: {nil, []}
+  defp split_command([command | rest]), do: {command, rest}
+
+  defp run_command({command, args, opts}) do
+    if Keyword.get(opts, :help) do
+      print_command_help(command)
+      System.halt(0)
+    else
+      run_command(command, args, opts)
+    end
+  end
+
+  defp print_command_help(nil), do: print_help()
+
+  defp print_command_help(command) do
+    dispatch_help(command, ["--help"]) || print_help()
+  end
+
+  defp run_command(nil, _args, _opts), do: print_help()
+  defp run_command(:version, _args, _opts), do: print_version()
+  defp run_command("version", _args, _opts), do: print_version()
+  defp run_command("init", args, opts), do: Main.init(args, opts)
+  defp run_command("docs", args, _opts), do: Docs.run(args)
+  defp run_command(command, args, opts), do: dispatch(command, args, opts)
+
   defp dispatch(command, args, global_opts) do
-    # Help subcommands don't need config
     if dispatch_help(command, args) do
       :ok
     else
@@ -110,50 +140,44 @@ defmodule Xamal.CLI do
   end
 
   defp dispatch_help(command, args) when args in [[], ["--help"]] do
-    case command do
-      "app" -> Xamal.CLI.App.help()
-      "build" -> Xamal.CLI.Build.help()
-      "lock" -> Xamal.CLI.Lock.help()
-      "secrets" -> Xamal.CLI.Secrets.help()
-      "server" -> Xamal.CLI.Server.help()
-      _ -> if args == ["--help"], do: print_help()
+    case Map.get(@subcommands, command) do
+      nil -> if args == ["--help"], do: print_help()
+      module -> module.help()
     end
   end
 
   defp dispatch_help(_command, _args), do: nil
 
   defp dispatch_with_config(command, args, global_opts) do
-    # Initialize configuration
-    config = init_config(global_opts)
-
-    unless config do
-      config_file = Keyword.get(global_opts, :config_file, "config/xamal.exs")
-      IO.puts(:stderr, "Configuration file not found: #{config_file}")
-      IO.puts(:stderr, "Run 'mix xamal.init' to generate a configuration file.")
-      System.halt(1)
-    end
-
-    # Start commander if not already running
+    config = global_opts |> init_config() |> ensure_config!(global_opts)
     ensure_commander(config, global_opts)
+    dispatch_configured_command(command, args, global_opts)
+  end
 
-    case command do
-      "setup" -> Xamal.CLI.Main.setup(args, global_opts)
-      "deploy" -> Xamal.CLI.Main.deploy(args, global_opts)
-      "redeploy" -> Xamal.CLI.Main.redeploy(args, global_opts)
-      "rollback" -> Xamal.CLI.Main.rollback(args, global_opts)
-      "details" -> Xamal.CLI.Main.details(args, global_opts)
-      "versions" -> Xamal.CLI.Main.versions(args, global_opts)
-      "audit" -> Xamal.CLI.Main.audit(args, global_opts)
-      "config" -> Xamal.CLI.Main.config(args, global_opts)
-      "remove" -> Xamal.CLI.Main.remove(args, global_opts)
-      "prune" -> Xamal.CLI.Prune.prune(args, global_opts)
-      "app" -> dispatch_subcommand(Xamal.CLI.App, args, global_opts)
-      "build" -> dispatch_subcommand(Xamal.CLI.Build, args, global_opts)
-      "lock" -> dispatch_subcommand(Xamal.CLI.Lock, args, global_opts)
-      "secrets" -> dispatch_subcommand(Xamal.CLI.Secrets, args, global_opts)
-      "server" -> dispatch_subcommand(Xamal.CLI.Server, args, global_opts)
-      other -> check_alias(other, args, global_opts)
+  defp dispatch_configured_command(command, args, global_opts) do
+    cond do
+      handler = Map.get(@main_commands, command) ->
+        apply_command(handler, args, global_opts)
+
+      module = Map.get(@subcommands, command) ->
+        dispatch_subcommand(module, args, global_opts)
+
+      true ->
+        check_alias(command, args, global_opts)
     end
+  end
+
+  defp ensure_config!(nil, global_opts) do
+    config_file = Keyword.get(global_opts, :config_file, "config/xamal.exs")
+    IO.puts(:stderr, "Configuration file not found: #{config_file}")
+    IO.puts(:stderr, "Run 'mix xamal.init' to generate a configuration file.")
+    System.halt(1)
+  end
+
+  defp ensure_config!(config, _global_opts), do: config
+
+  defp apply_command({module, function}, args, global_opts) do
+    apply(module, function, [args, global_opts])
   end
 
   defp dispatch_subcommand(module, args, global_opts) do
@@ -164,7 +188,7 @@ defmodule Xamal.CLI do
   end
 
   defp check_alias(command, args, global_opts) do
-    config = Xamal.Commander.config()
+    config = Commander.config()
     aliases = if config, do: config.aliases || %{}, else: %{}
 
     case Map.get(aliases, command) do
@@ -195,7 +219,7 @@ defmodule Xamal.CLI do
         # For init command, config may not exist yet
         config =
           if File.exists?(config_file) do
-            Xamal.Configuration.create_from(
+            Configuration.create_from(
               config_file: config_file,
               destination: destination,
               version: version
@@ -213,42 +237,62 @@ defmodule Xamal.CLI do
   end
 
   defp ensure_commander(config, global_opts) do
-    unless Xamal.Commander.configured?() do
-      if config do
-        Xamal.Commander.configure(config)
-      end
+    if Commander.configured?() do
+      :ok
+    else
+      configure_commander(config)
+      configure_host_filter(global_opts)
+      configure_role_filter(global_opts)
+      configure_primary_filter(global_opts)
+      configure_verbosity(global_opts)
+    end
+  end
 
-      if Keyword.get(global_opts, :hosts) do
-        hosts = global_opts[:hosts] |> String.split(",")
-        Xamal.Commander.set_specific_hosts(hosts)
-      end
+  defp configure_commander(nil), do: :ok
+  defp configure_commander(config), do: Commander.configure(config)
 
-      if Keyword.get(global_opts, :roles) do
-        roles = global_opts[:roles] |> String.split(",")
-        Xamal.Commander.set_specific_roles(roles)
-      end
+  defp configure_host_filter(global_opts) do
+    if Keyword.get(global_opts, :hosts) do
+      global_opts[:hosts]
+      |> String.split(",")
+      |> Commander.set_specific_hosts()
+    end
+  end
 
-      if Keyword.get(global_opts, :primary) do
-        config = Xamal.Commander.config()
+  defp configure_role_filter(global_opts) do
+    if Keyword.get(global_opts, :roles) do
+      global_opts[:roles]
+      |> String.split(",")
+      |> Commander.set_specific_roles()
+    end
+  end
 
-        if config do
-          primary = Xamal.Configuration.primary_host(config)
-          if primary, do: Xamal.Commander.set_specific_hosts([primary])
-        end
-      end
+  defp configure_primary_filter(global_opts) do
+    if Keyword.get(global_opts, :primary) do
+      Commander.config()
+      |> primary_host()
+      |> set_primary_host()
+    end
+  end
 
-      cond do
-        Keyword.get(global_opts, :verbose) ->
-          Xamal.Commander.set_verbosity(:debug)
-          Logger.configure(level: :debug)
+  defp primary_host(nil), do: nil
+  defp primary_host(config), do: Configuration.primary_host(config)
 
-        Keyword.get(global_opts, :quiet) ->
-          Xamal.Commander.set_verbosity(:error)
-          Logger.configure(level: :error)
+  defp set_primary_host(nil), do: :ok
+  defp set_primary_host(primary), do: Commander.set_specific_hosts([primary])
 
-        true ->
-          :ok
-      end
+  defp configure_verbosity(global_opts) do
+    cond do
+      Keyword.get(global_opts, :verbose) ->
+        Commander.set_verbosity(:debug)
+        Logger.configure(level: :debug)
+
+      Keyword.get(global_opts, :quiet) ->
+        Commander.set_verbosity(:error)
+        Logger.configure(level: :error)
+
+      true ->
+        :ok
     end
   end
 

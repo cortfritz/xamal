@@ -1,7 +1,7 @@
 defmodule Xamal.Configuration.RoleTest do
   use ExUnit.Case, async: true
 
-  alias Xamal.Configuration.{Role, Env}
+  alias Xamal.Configuration.{Env, Role}
 
   @raw_config %{"service" => "my-app"}
 

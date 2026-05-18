@@ -5,21 +5,25 @@ defmodule Xamal.CLI.App do
 
   import Xamal.CLI.Base
 
+  @commands %{
+    "boot" => :boot,
+    "start" => :start,
+    "stop" => :stop,
+    "exec" => :exec,
+    "logs" => :logs,
+    "details" => :details,
+    "version" => :version,
+    "remove" => :remove,
+    "releases" => :releases,
+    "stale_releases" => :stale_releases,
+    "maintenance" => :maintenance,
+    "live" => :live
+  }
+
   def run(subcommand, args, opts) do
-    case subcommand do
-      "boot" -> boot(args, opts)
-      "start" -> start(args, opts)
-      "stop" -> stop(args, opts)
-      "exec" -> exec(args, opts)
-      "logs" -> logs(args, opts)
-      "details" -> details(args, opts)
-      "version" -> version(args, opts)
-      "remove" -> remove(args, opts)
-      "releases" -> releases(args, opts)
-      "stale_releases" -> stale_releases(args, opts)
-      "maintenance" -> maintenance(args, opts)
-      "live" -> live(args, opts)
-      other -> say("Unknown app command: #{other}", :red)
+    case Map.get(@commands, subcommand) do
+      nil -> say("Unknown app command: #{subcommand}", :red)
+      command -> apply(__MODULE__, command, [args, opts])
     end
   end
 

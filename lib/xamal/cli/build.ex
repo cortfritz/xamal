@@ -94,15 +94,19 @@ defmodule Xamal.CLI.Build do
     end
   rescue
     e in ErlangError ->
-      raise """
-      Docker is not installed.
+      reraise RuntimeError,
+              [
+                message: """
+                Docker is not installed.
 
-      The builder is configured to use Docker but the 'docker' command was not \
-      found. Install Docker to use Docker-based builds, or remove the 'docker' \
-      setting from your builder configuration.
+                The builder is configured to use Docker but the 'docker' command was not \
+                found. Install Docker to use Docker-based builds, or remove the 'docker' \
+                setting from your builder configuration.
 
-      Original error: #{inspect(e)}
-      """
+                Original error: #{inspect(e)}
+                """
+              ],
+              __STACKTRACE__
   end
 
   def pull(_args, _opts) do

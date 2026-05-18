@@ -24,7 +24,7 @@ defmodule Xamal.HealthCheckTest do
   describe "wait_until_ready/3" do
     test "times out when service is not available" do
       # Use a port that's very unlikely to be listening
-      result = HealthCheck.wait_until_ready("127.0.0.1", 19999, timeout: 1, interval: 1)
+      result = HealthCheck.wait_until_ready("127.0.0.1", 19_999, timeout: 1, interval: 1)
       assert result == {:error, :timeout}
     end
   end

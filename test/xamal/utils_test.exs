@@ -69,7 +69,6 @@ defmodule Xamal.UtilsTest do
       System.cmd("git", ["add", "."], cd: dir)
       System.cmd("git", ["commit", "-m", "init", "--quiet"], cd: dir, stderr_to_stdout: true)
 
-      # Create an uncommitted file
       File.write!(Path.join(dir, "dirty.txt"), "dirty")
 
       {result, _} = System.cmd("git", ["status", "--porcelain"], cd: dir)

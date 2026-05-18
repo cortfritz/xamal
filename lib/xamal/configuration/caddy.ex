@@ -52,7 +52,7 @@ defmodule Xamal.Configuration.Caddy do
     matcher =
       case hostnames(caddy) do
         [] -> ":80"
-        hosts when caddy.ssl == false -> hosts |> Enum.map(&"http://#{&1}") |> Enum.join(", ")
+        hosts when caddy.ssl == false -> Enum.map_join(hosts, ", ", &"http://#{&1}")
         hosts -> Enum.join(hosts, ", ")
       end
 

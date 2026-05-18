@@ -38,10 +38,7 @@ defmodule Xamal.Commands.Auditor do
 
     base = "[#{timestamp}] [#{service}]"
 
-    extra =
-      details
-      |> Enum.map(fn {k, v} -> "[#{k}: #{v}]" end)
-      |> Enum.join(" ")
+    extra = Enum.map_join(details, " ", fn {k, v} -> "[#{k}: #{v}]" end)
 
     if extra == "", do: base, else: "#{base} #{extra}"
   end
