@@ -75,13 +75,31 @@ defmodule Xamal.SSH do
   end
 
   @doc """
-  Upload a file to a remote host via SCP (using SFTP channel).
+  Upload a file to a remote host.
+
+  When an on-disk private key is configured (`ssh.keys`), this shells out to the
+  system `scp` binary, which transfers at full link speed. Erlang's built-in
+  `:ssh_sftp` writes the whole file through a small SFTP window (~100-200 KB/s in
+  practice), which is pathologically slow for release tarballs (hundreds of MB) —
+  a multi-minute upload becomes seconds over scp. When no key file is available
+  (e.g. `key_data` from a secrets manager, or an agent), it falls back to the
+  in-VM SFTP channel so those flows keep working.
   """
   def upload(host, local_path, remote_path, opts \\ []) do
     ssh_config = Keyword.get(opts, :ssh_config, %Xamal.Configuration.Ssh{})
     hostname = Host.hostname(host)
     port = Host.port(host, ssh_config)
 
+    case key_file(ssh_config) do
+      {:ok, key_path} ->
+        upload_via_scp(key_path, ssh_config.user, hostname, port, local_path, remote_path)
+
+      :none ->
+        upload_via_sftp_pooled(ssh_config, hostname, port, local_path, remote_path)
+    end
+  end
+
+  defp upload_via_sftp_pooled(ssh_config, hostname, port, local_path, remote_path) do
     checkout_result =
       try do
         ConnectionPool.checkout(
@@ -101,6 +119,36 @@ defmodule Xamal.SSH do
       after
         ConnectionPool.checkin(hostname, port, ssh_config.user)
       end
+    end
+  end
+
+  # First existing on-disk key from ssh.keys, or :none (key_data/agent flows).
+  defp key_file(%{keys: keys}) when is_list(keys) do
+    Enum.find_value(keys, :none, fn k ->
+      expanded = Path.expand(k)
+      if File.exists?(expanded), do: {:ok, expanded}, else: false
+    end)
+  end
+
+  defp key_file(_), do: :none
+
+  defp upload_via_scp(key_path, user, hostname, port, local_path, remote_path) do
+    args = [
+      "-i",
+      key_path,
+      "-P",
+      to_string(port),
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      local_path,
+      "#{user}@#{hostname}:#{remote_path}"
+    ]
+
+    case System.cmd("scp", args, stderr_to_stdout: true) do
+      {_, 0} -> {:ok, remote_path}
+      {output, code} -> {:error, {:scp_failed, code, String.trim(output)}}
     end
   end
 
