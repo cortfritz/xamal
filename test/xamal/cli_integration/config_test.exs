@@ -1,5 +1,5 @@
-defmodule Xamal.CLIIntegration.ConfigTest do
-  use ExUnit.Case, async: true
+defmodule Xamal.MixTaskIntegration.ConfigTest do
+  use ExUnit.Case, async: false
   import Xamal.IntegrationHelpers
 
   setup do

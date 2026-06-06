@@ -1,0 +1,80 @@
+defmodule Xamal.ServerTasks do
+  @moduledoc """
+  Server task implementations.
+  """
+
+  import Xamal.Logs
+  import Xamal.Output
+
+  alias Xamal.Commands.{Caddy, Server, Systemd}
+  alias Xamal.{Context, SSH}
+
+  def exec(args, _opts, context) do
+    command = Enum.join(args, " ")
+
+    if command == "" do
+      say("Usage: mix xamal.server.exec COMMAND", :red)
+    else
+      exec_on_hosts(command, context.config, Context.hosts(context))
+    end
+  end
+
+  defp exec_on_hosts(command, config, hosts) do
+    Enum.each(hosts, fn host ->
+      case SSH.execute(host, command, ssh_config: config.ssh) do
+        {:ok, output} -> puts_by_host(host, output, type: "Server")
+        {:error, reason} -> puts_by_host(host, "Error: #{inspect(reason)}", type: "Server")
+      end
+    end)
+  end
+
+  def bootstrap(_args, _opts, context) do
+    config = context.config
+    hosts = Context.hosts(context)
+
+    say("Bootstrapping #{length(hosts)} server(s)...", :magenta)
+
+    Enum.each(hosts, fn host ->
+      say("  Bootstrapping #{host}...", :magenta)
+
+      # Check if Caddy is installed
+      case SSH.execute_command(host, Caddy.check_installed(), ssh_config: config.ssh) do
+        {:ok, _} ->
+          say("  Caddy already installed on #{host}", :green)
+
+        {:error, _} ->
+          say("  Installing Caddy on #{host}...", :magenta)
+          install_cmd = Caddy.install()
+          SSH.execute_command(host, install_cmd, ssh_config: config.ssh, timeout: 120_000)
+      end
+
+      # Create directory structure
+      bootstrap_cmd = Server.bootstrap(config)
+      SSH.execute_command(host, bootstrap_cmd, ssh_config: config.ssh)
+
+      # Install systemd service unit
+      say("  Installing systemd service unit on #{host}...", :magenta)
+
+      SSH.execute_command(host, Systemd.install_unit(config), ssh_config: config.ssh)
+
+      # Generate initial Caddyfile
+      caddyfile_cmd = Caddy.write_caddyfile(config, config.caddy.app_port)
+      SSH.execute_command(host, caddyfile_cmd, ssh_config: config.ssh)
+
+      # Point system Caddyfile to import service Caddyfiles (survives reboot)
+      SSH.execute_command(host, Caddy.configure_system_caddyfile(), ssh_config: config.ssh)
+
+      # Start/reload Caddy
+      SSH.execute_command(host, Caddy.reload(config), ssh_config: config.ssh)
+
+      say("  Bootstrapped #{host}", :green)
+    end)
+  end
+
+  def logs(args, _opts, context) do
+    config = context.config
+    log_opts = parse_log_opts(args)
+
+    dispatch_logs(log_opts, &Caddy.logs/1, config, [type: "Server"], context)
+  end
+end

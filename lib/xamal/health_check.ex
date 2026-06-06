@@ -22,9 +22,7 @@ defmodule Xamal.HealthCheck do
     timeout = Keyword.get(opts, :timeout, 30)
 
     deadline = System.monotonic_time(:second) + timeout
-    url = "http://#{host}:#{port}#{path}"
-
-    do_poll(url, interval, deadline)
+    do_poll(url(host, port, path), interval, deadline)
   end
 
   @doc """
@@ -32,7 +30,7 @@ defmodule Xamal.HealthCheck do
   Returns a command that can be executed remotely.
   """
   def check_command(port, path \\ "/health") do
-    ["curl", "-sf", "-o", "/dev/null", "-w", "%{http_code}", "http://localhost:#{port}#{path}"]
+    ["curl", "-sf", "-o", "/dev/null", "-w", "%{http_code}", url("localhost", port, path)]
   end
 
   @doc """
@@ -49,6 +47,14 @@ defmodule Xamal.HealthCheck do
 
     do_poll_remote(host, cmd, ssh_config, interval, deadline)
   end
+
+  defp url(host, port, path) do
+    %URI{scheme: "http", host: host, port: port, path: normalize_path(path)}
+    |> URI.to_string()
+  end
+
+  defp normalize_path("/" <> _ = path), do: path
+  defp normalize_path(path), do: "/#{path}"
 
   defp do_poll(url, interval, deadline) do
     if System.monotonic_time(:second) > deadline do
@@ -81,7 +87,7 @@ defmodule Xamal.HealthCheck do
   end
 
   defp http_get(url) do
-    case :httpc.request(:get, {~c"#{url}", []}, [timeout: 5000], []) do
+    case :httpc.request(:get, {String.to_charlist(url), []}, [timeout: 5000], []) do
       {:ok, {{_, status, _}, _headers, _body}} -> {:ok, status}
       {:error, reason} -> {:error, reason}
     end

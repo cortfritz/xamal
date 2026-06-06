@@ -1,41 +1,47 @@
 defmodule Xamal.IntegrationHelpers do
   @moduledoc false
 
-  @deploy_yml """
-  service: test-app
-  servers:
-    web:
-      - 10.0.0.1
-      - 10.0.0.2
-    worker:
-      hosts:
-        - 10.0.0.3
-      cmd: bin/test_app eval "Worker.start()"
-  ssh:
-    user: deploy
-    port: 22
-    connect_timeout: 0
-  caddy:
-    host: test.example.com
-    app_port: 4000
-  env:
-    clear:
-      PHX_HOST: test.example.com
-    secret:
-      - SECRET_KEY_BASE
-  release:
-    name: test_app
-    mix_env: prod
-  health_check:
-    path: /health
-    interval: 1
-    timeout: 30
-  boot:
-    limit: 2
-    wait: 1
-  retain_releases: 3
-  aliases:
-    info: config
+  @xamal_config """
+  import Config
+
+  config :xamal,
+    service: "test-app",
+    servers: [
+      web: ["10.0.0.1", "10.0.0.2"],
+      worker: [
+        hosts: ["10.0.0.3"],
+        cmd: "bin/test_app eval \\\"Worker.start()\\\""
+      ]
+    ],
+    ssh: [
+      user: "deploy",
+      port: 22,
+      connect_timeout: 0
+    ],
+    caddy: [
+      host: "test.example.com",
+      app_port: 4000
+    ],
+    env: [
+      clear: [
+        PHX_HOST: "test.example.com"
+      ],
+      secret: ["SECRET_KEY_BASE"]
+    ],
+    release: [
+      name: "test_app",
+      mix_env: "prod"
+    ],
+    health_check: [
+      path: "/health",
+      interval: 1,
+      timeout: 30
+    ],
+    boot: [
+      limit: 2,
+      wait: 1
+    ],
+    retain_releases: 3
   """
 
   @secrets_file """
@@ -50,9 +56,26 @@ defmodule Xamal.IntegrationHelpers do
 
   def setup_config(dir) do
     File.mkdir_p!(Path.join(dir, "config"))
-    File.write!(Path.join(dir, "config/deploy.yml"), @deploy_yml)
+    File.write!(Path.join(dir, "config/xamal.exs"), @xamal_config)
     File.mkdir_p!(Path.join(dir, ".xamal"))
     File.write!(Path.join(dir, ".xamal/secrets"), @secrets_file)
+  end
+
+  def setup_mix_project(dir) do
+    File.write!(Path.join(dir, "mix.exs"), """
+    defmodule Sample.MixProject do
+      use Mix.Project
+
+      def project do
+        [
+          app: :sample,
+          version: "0.1.0",
+          elixir: "~> 1.15",
+          deps: []
+        ]
+      end
+    end
+    """)
   end
 
   def setup_git_repo(dir) do
@@ -71,9 +94,25 @@ defmodule Xamal.IntegrationHelpers do
   end
 
   def xamal(args, dir) do
-    System.cmd("timeout", ["2", Path.expand("xamal")] ++ args, cd: dir, stderr_to_stdout: true)
+    output =
+      ExUnit.CaptureIO.capture_io(fn ->
+        File.cd!(dir, fn -> run_mix_task(args) end)
+      end)
+
+    {output, 0}
+  rescue
+    error in Mix.Error -> {Exception.message(error), 1}
   end
 
-  def deploy_yml, do: @deploy_yml
+  defp run_mix_task(["config" | args]), do: Mix.Task.rerun("xamal.config", args)
+  defp run_mix_task(["init" | args]), do: Mix.Task.rerun("xamal.init", args)
+  defp run_mix_task(["docs" | args]), do: Mix.Task.rerun("xamal.docs", args)
+  defp run_mix_task(["build", "details" | args]), do: Mix.Task.rerun("xamal.build.details", args)
+  defp run_mix_task(["secrets", "print" | args]), do: Mix.Task.rerun("xamal.secrets.print", args)
+
+  defp run_mix_task([task | _args]),
+    do: Mix.raise("Unknown Mix task mapping for #{inspect(task)}")
+
+  def deploy_config, do: @xamal_config
   def secrets_file, do: @secrets_file
 end

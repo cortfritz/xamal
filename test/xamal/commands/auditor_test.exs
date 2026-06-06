@@ -13,13 +13,12 @@ defmodule Xamal.Commands.AuditorTest do
     env: %Xamal.Configuration.Env{clear: %{}, secret_keys: [], secrets: nil},
     ssh: %Xamal.Configuration.Ssh{},
     release: %Xamal.Configuration.Release{name: "my_app", mix_env: "prod"},
-    health_check: %Xamal.Configuration.HealthCheck{},
-    aliases: %{}
+    health_check: %Xamal.Configuration.HealthCheck{}
   }
 
-  describe "record/3" do
+  describe "record/4" do
     test "builds audit log append command" do
-      cmd = Auditor.record(@config, "Deployed version abc1234")
+      cmd = Auditor.record(@config, "Deployed version abc1234", "2026-01-01T00:00:00Z")
       cmd_str = Enum.join(cmd, " ")
 
       assert cmd_str =~ "mkdir -p"
@@ -31,7 +30,12 @@ defmodule Xamal.Commands.AuditorTest do
     end
 
     test "includes details tags" do
-      cmd = Auditor.record(@config, "Deployed", %{version: "abc1234", role: "web"})
+      cmd =
+        Auditor.record(@config, "Deployed", "2026-01-01T00:00:00Z", %{
+          version: "abc1234",
+          role: "web"
+        })
+
       cmd_str = Enum.join(cmd, " ")
 
       assert cmd_str =~ "my-app"

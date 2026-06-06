@@ -5,8 +5,7 @@ defmodule Xamal.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      Xamal.SSH.ConnectionPool,
-      Xamal.Commander
+      Xamal.SSH.ConnectionPool
     ]
 
     opts = [strategy: :one_for_one, name: Xamal.Supervisor]

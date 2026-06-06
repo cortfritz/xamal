@@ -1,5 +1,5 @@
-defmodule Xamal.CLIIntegration.InitTest do
-  use ExUnit.Case, async: true
+defmodule Xamal.MixTaskIntegration.InitTest do
+  use ExUnit.Case, async: false
   import Xamal.IntegrationHelpers
 
   setup do
@@ -9,14 +9,13 @@ defmodule Xamal.CLIIntegration.InitTest do
   end
 
   test "creates config files with expected content and executable hooks", %{dir: dir} do
-    {output, 0} = xamal(["init"], dir)
+    setup_mix_project(dir)
+    {_output, 0} = xamal(["init"], dir)
 
-    assert output =~ "Created configuration file"
-    assert output =~ "Created .xamal/secrets"
-    assert output =~ "Created sample hooks"
-
-    assert File.exists?(Path.join(dir, "config/deploy.yml"))
+    assert File.exists?(Path.join(dir, "config/xamal.exs"))
     assert File.exists?(Path.join(dir, ".xamal/secrets"))
+    assert File.read!(Path.join(dir, ".gitignore")) =~ ".xamal/secrets*"
+    assert File.read!(Path.join(dir, ".gitignore")) =~ ".xamal/*.env"
 
     # All 8 hooks should be created and executable
     for hook <-
@@ -27,22 +26,44 @@ defmodule Xamal.CLIIntegration.InitTest do
       assert Bitwise.band(mode, 0o111) != 0, "Expected hook #{hook} to be executable"
     end
 
-    # Verify deploy.yml content
-    content = File.read!(Path.join(dir, "config/deploy.yml"))
-    assert content =~ "service: my-app"
+    content = File.read!(Path.join(dir, "config/xamal.exs"))
+    assert content =~ "import Config"
+    assert content =~ "service: \"xamal\""
     assert content =~ "servers:"
     assert content =~ "caddy:"
     assert content =~ "release:"
+    assert content =~ "name: \"xamal\""
     assert content =~ "health_check:"
+
+    mix_exs = File.read!(Path.join(dir, "mix.exs"))
+    assert mix_exs =~ "releases:"
+    assert mix_exs =~ "xamal:"
+    assert mix_exs =~ "version: {:from_app, :xamal}"
+    assert mix_exs =~ "aliases:"
+    assert mix_exs =~ "xamal.info"
   end
 
   test "does not overwrite existing config", %{dir: dir} do
+    setup_mix_project(dir)
     setup_config(dir)
-    {output, 0} = xamal(["init"], dir)
-    assert output =~ "already exists"
+    {_output, 0} = xamal(["init"], dir)
 
-    # Original content preserved
-    content = File.read!(Path.join(dir, "config/deploy.yml"))
+    content = File.read!(Path.join(dir, "config/xamal.exs"))
     assert content =~ "test-app"
+  end
+
+  test "is idempotent", %{dir: dir} do
+    setup_mix_project(dir)
+    {_output, 0} = xamal(["init"], dir)
+
+    first_config = File.read!(Path.join(dir, "config/xamal.exs"))
+    first_gitignore = File.read!(Path.join(dir, ".gitignore"))
+    first_mix_exs = File.read!(Path.join(dir, "mix.exs"))
+
+    {_output, 0} = xamal(["init"], dir)
+
+    assert File.read!(Path.join(dir, "config/xamal.exs")) == first_config
+    assert File.read!(Path.join(dir, ".gitignore")) == first_gitignore
+    assert File.read!(Path.join(dir, "mix.exs")) == first_mix_exs
   end
 end
