@@ -5,6 +5,9 @@ defmodule Xamal.Commands.App do
 
   import Xamal.Commands.Base
 
+  alias Xamal.Configuration
+  alias Xamal.Configuration.Role
+
   @doc """
   Start the release as a daemon on a given port.
 
@@ -12,8 +15,8 @@ defmodule Xamal.Commands.App do
   """
   def start(config, role, port) do
     bin = release_bin(config)
-    env_file = Xamal.Configuration.Role.secrets_path(role, config)
-    service_dir = Xamal.Configuration.service_directory(config)
+    env_file = Role.secrets_path(role, config)
+    service_dir = Configuration.service_directory(config)
     release_name = config.release.name
 
     combine([
@@ -30,8 +33,8 @@ defmodule Xamal.Commands.App do
   """
   def start_version(config, role, version, port) do
     bin = release_bin(config)
-    env_file = Xamal.Configuration.Role.secrets_path(role, config)
-    release_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+    env_file = Role.secrets_path(role, config)
+    release_dir = "#{Configuration.releases_directory(config)}/#{version}"
     release_name = config.release.name
 
     combine([
@@ -48,14 +51,9 @@ defmodule Xamal.Commands.App do
   """
   def stop(config, port \\ nil) do
     bin = release_bin(config)
-    current = Xamal.Configuration.current_link(config)
+    current = Configuration.current_link(config)
 
-    if port do
-      release_name = config.release.name
-      ["RELEASE_NODE=#{release_name}_#{port}", "#{current}/#{bin}", "stop"]
-    else
-      ["#{current}/#{bin}", "stop"]
-    end
+    stop_command(config, current, bin, port)
   end
 
   @doc """
@@ -63,14 +61,9 @@ defmodule Xamal.Commands.App do
   """
   def stop_version(config, version, port \\ nil) do
     bin = release_bin(config)
-    release_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+    release_dir = "#{Configuration.releases_directory(config)}/#{version}"
 
-    if port do
-      release_name = config.release.name
-      ["RELEASE_NODE=#{release_name}_#{port}", "#{release_dir}/#{bin}", "stop"]
-    else
-      ["#{release_dir}/#{bin}", "stop"]
-    end
+    stop_command(config, release_dir, bin, port)
   end
 
   @doc """
@@ -78,7 +71,7 @@ defmodule Xamal.Commands.App do
   """
   def running?(config, port \\ nil) do
     bin = release_bin(config)
-    current = Xamal.Configuration.current_link(config)
+    current = Configuration.current_link(config)
 
     if port do
       release_name = config.release.name
@@ -93,7 +86,7 @@ defmodule Xamal.Commands.App do
   """
   def current_version(config) do
     pipe([
-      ["readlink", "-f", Xamal.Configuration.current_link(config)],
+      ["readlink", "-f", Configuration.current_link(config)],
       ["xargs", "basename"]
     ])
   end
@@ -107,8 +100,8 @@ defmodule Xamal.Commands.App do
     interactive = Keyword.get(opts, :interactive, false)
     port = Keyword.get(opts, :port)
     bin = release_bin(config)
-    current = Xamal.Configuration.current_link(config)
-    env_file = "#{Xamal.Configuration.env_directory(config)}/app.env"
+    current = Configuration.current_link(config)
+    env_file = "#{Configuration.env_directory(config)}/app.env"
 
     # Source the env file so runtime.exs has the required env vars,
     # and set RELEASE_NODE so we connect to the correct node.
@@ -131,7 +124,7 @@ defmodule Xamal.Commands.App do
   """
   def eval(config, expression) do
     bin = release_bin(config)
-    current = Xamal.Configuration.current_link(config)
+    current = Configuration.current_link(config)
 
     ["#{current}/#{bin}", "eval", Xamal.Utils.shell_escape(expression)]
   end
@@ -172,7 +165,7 @@ defmodule Xamal.Commands.App do
   List all release directories.
   """
   def list_releases(config) do
-    ["ls", "-1t", Xamal.Configuration.releases_directory(config)]
+    ["ls", "-1t", Configuration.releases_directory(config)]
   end
 
   @doc """
@@ -189,7 +182,7 @@ defmodule Xamal.Commands.App do
   Remove a specific release directory.
   """
   def remove_release(config, version) do
-    release_dir = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
+    release_dir = "#{Configuration.releases_directory(config)}/#{version}"
     remove_directory(release_dir)
   end
 
@@ -198,7 +191,7 @@ defmodule Xamal.Commands.App do
   """
   def details(config, port \\ nil) do
     bin = release_bin(config)
-    current = Xamal.Configuration.current_link(config)
+    current = Configuration.current_link(config)
 
     node_env =
       if port do
@@ -218,7 +211,16 @@ defmodule Xamal.Commands.App do
     ])
   end
 
+  defp stop_command(config, release_dir, bin, port) do
+    if port do
+      release_name = config.release.name
+      ["RELEASE_NODE=#{release_name}_#{port}", "#{release_dir}/#{bin}", "stop"]
+    else
+      ["#{release_dir}/#{bin}", "stop"]
+    end
+  end
+
   defp release_bin(config) do
-    Xamal.Configuration.Release.bin_path(config.release)
+    Configuration.Release.bin_path(config.release)
   end
 end

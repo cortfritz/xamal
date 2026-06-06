@@ -1,7 +1,7 @@
 defmodule Xamal.Configuration.RoleTest do
   use ExUnit.Case, async: true
 
-  alias Xamal.Configuration.{Role, Env}
+  alias Xamal.Configuration.{Env, Role}
 
   @raw_config %{"service" => "my-app"}
 
@@ -86,8 +86,7 @@ defmodule Xamal.Configuration.RoleTest do
         env: %Xamal.Configuration.Env{clear: %{}, secret_keys: [], secrets: nil},
         ssh: %Xamal.Configuration.Ssh{},
         release: %Xamal.Configuration.Release{name: "my_app", mix_env: "prod"},
-        health_check: %Xamal.Configuration.HealthCheck{},
-        aliases: %{}
+        health_check: %Xamal.Configuration.HealthCheck{}
       }
 
       role = %Role{name: "web", hosts: []}

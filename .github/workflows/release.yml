@@ -5,33 +5,62 @@ on:
     tags:
       - "v*"
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: erlef/setup-beam@v1
-        with:
-          elixir-version: "1.15"
-          otp-version: "26"
-      - run: mix deps.get
-      - run: mix escript.build
-      - run: mix escript.install --force
-      - run: mix test
+permissions:
+  contents: write
 
-  release:
-    needs: test
+jobs:
+  publish:
+    name: Publish to Hex
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
       - uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.15"
-          otp-version: "26"
+          elixir-version: "1.20"
+          otp-version: "28"
+
       - run: mix deps.get
-      - run: mix escript.build
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: xamal
+
+      - name: Verify build
+        env:
+          MIX_ENV: test
+        run: |
+          mix dialyzer --plt
+          mix ci
+
+      - name: Publish package
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: mix hex.publish --yes
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # Pull the body between this version's heading and the next "## [" heading.
+          notes="$(awk -v ver="$version" '
+            $0 ~ "^## \\[" ver "\\]" { capture = 1; next }
+            capture && /^## \[/      { exit }
+            capture                  { print }
+          ' CHANGELOG.md)"
+          # Trim leading/trailing blank lines.
+          notes="$(printf '%s\n' "$notes" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac)"
+          {
+            echo "notes<<EOF"
+            if [ -n "$notes" ]; then
+              echo "$notes"
+            else
+              echo "Release $GITHUB_REF_NAME"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "${{ steps.changelog.outputs.notes }}"

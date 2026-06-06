@@ -9,6 +9,9 @@ defmodule Xamal.Commands.Systemd do
 
   import Xamal.Commands.Base
 
+  alias Xamal.Configuration
+  alias Xamal.Configuration.{Caddy, Role}
+
   @unit_dir "/etc/systemd/system"
 
   @doc """
@@ -16,9 +19,9 @@ defmodule Xamal.Commands.Systemd do
   """
   def generate_unit_content(config) do
     release_name = config.release.name
-    service_dir = Xamal.Configuration.service_directory(config)
+    service_dir = Configuration.service_directory(config)
     user = config.ssh.user
-    drain_timeout = Xamal.Configuration.drain_timeout(config)
+    drain_timeout = Configuration.drain_timeout(config)
 
     """
     [Unit]
@@ -92,7 +95,7 @@ defmodule Xamal.Commands.Systemd do
   """
   def stop_all(config) do
     app_port = config.caddy.app_port
-    alt_port = Xamal.Configuration.Caddy.alt_port(config.caddy)
+    alt_port = Caddy.alt_port(config.caddy)
 
     chain([
       stop(config, app_port),
@@ -105,7 +108,7 @@ defmodule Xamal.Commands.Systemd do
   """
   def disable_all(config) do
     app_port = config.caddy.app_port
-    alt_port = Xamal.Configuration.Caddy.alt_port(config.caddy)
+    alt_port = Caddy.alt_port(config.caddy)
 
     chain([
       disable(config, app_port),
@@ -127,8 +130,8 @@ defmodule Xamal.Commands.Systemd do
   Create a symlink from env/app.env to the role-specific env file.
   """
   def write_env_symlink(config, role) do
-    role_env = Xamal.Configuration.Role.secrets_path(role, config)
-    app_env = "#{Xamal.Configuration.env_directory(config)}/app.env"
+    role_env = Role.secrets_path(role, config)
+    app_env = "#{Configuration.env_directory(config)}/app.env"
 
     ["ln", "-sfn", role_env, app_env]
   end

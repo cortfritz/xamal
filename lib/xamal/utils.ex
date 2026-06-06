@@ -39,6 +39,18 @@ defmodule Xamal.Utils do
   end
 
   @doc """
+  Convert an underscored release name to a PascalCase module name.
+
+      iex> Xamal.Utils.to_module_name("my_app")
+      "MyApp"
+  """
+  def to_module_name(release_name) when is_binary(release_name) do
+    release_name
+    |> String.split("_", trim: true)
+    |> Enum.map_join(&String.capitalize/1)
+  end
+
+  @doc """
   Check if the git working tree has uncommitted or staged changes.
   """
   def git_dirty? do
@@ -95,15 +107,14 @@ defmodule Xamal.Utils do
   Parse a "host:port" string or just "host" into {host, port}.
   """
   def parse_host_port(str, default_port \\ 22) do
-    case String.split(str, ":", parts: 2) do
-      [host, port] ->
-        case Integer.parse(port) do
-          {p, ""} -> {host, p}
-          _ -> {str, default_port}
-        end
+    uri = URI.parse("//#{str}")
 
-      [host] ->
-        {host, default_port}
+    if uri.host && uri.port do
+      {uri.host, uri.port}
+    else
+      {str, default_port}
     end
+  rescue
+    URI.Error -> {str, default_port}
   end
 end

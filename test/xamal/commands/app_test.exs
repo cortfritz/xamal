@@ -13,8 +13,7 @@ defmodule Xamal.Commands.AppTest do
     env: %Xamal.Configuration.Env{clear: %{}, secret_keys: [], secrets: nil},
     ssh: %Xamal.Configuration.Ssh{},
     release: %Xamal.Configuration.Release{name: "my_app", mix_env: "prod"},
-    health_check: %Xamal.Configuration.HealthCheck{},
-    aliases: %{}
+    health_check: %Xamal.Configuration.HealthCheck{}
   }
 
   @role %Xamal.Configuration.Role{name: "web", hosts: ["1.2.3.4"]}

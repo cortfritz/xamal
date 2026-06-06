@@ -41,29 +41,31 @@ defmodule Xamal.Configuration.Ssh do
   Returns SSH connection options for Erlang's :ssh module.
   """
   def connect_options(%__MODULE__{} = ssh) do
-    opts = [
+    [
       user: String.to_charlist(ssh.user),
       silently_accept_hosts: true,
       user_interaction: false
     ]
-
-    opts =
-      cond do
-        ssh.key_data ->
-          opts ++ [key_cb: {Xamal.SSH.KeyProvider, key_data: ssh.key_data}]
-
-        ssh.keys ->
-          opts ++ [user_dir: hd(ssh.keys) |> Path.dirname() |> String.to_charlist()]
-
-        true ->
-          opts
-      end
-
-    opts = if ssh.config == false, do: opts ++ [ssh_config: :disabled], else: opts
-    opts = opts ++ [connect_timeout: ssh.connect_timeout]
-
-    opts
+    |> put_key_options(ssh)
+    |> put_config_options(ssh)
+    |> Keyword.put(:connect_timeout, ssh.connect_timeout)
   end
+
+  defp put_key_options(opts, %{key_data: key_data}) when not is_nil(key_data) do
+    opts ++ [key_cb: {Xamal.SSH.KeyProvider, key_data: key_data}]
+  end
+
+  defp put_key_options(opts, %{keys: keys}) when not is_nil(keys) do
+    # Path.expand resolves a leading ~ — Erlang's :ssh does not, and would
+    # otherwise stat a literal "~/.ssh" directory and fail with :enoent.
+    user_dir = keys |> hd() |> Path.expand() |> Path.dirname() |> String.to_charlist()
+    opts ++ [user_dir: user_dir]
+  end
+
+  defp put_key_options(opts, _ssh), do: opts
+
+  defp put_config_options(opts, %{config: false}), do: opts ++ [ssh_config: :disabled]
+  defp put_config_options(opts, _ssh), do: opts
 
   defp parse_log_level(level) when is_binary(level) do
     case String.downcase(level) do

@@ -5,20 +5,22 @@ defmodule Xamal.Commands.Server do
 
   import Xamal.Commands.Base
 
+  alias Xamal.Configuration
+
   @doc """
   Create all required directories on the server.
   """
   def bootstrap(config) do
-    service_dir = Xamal.Configuration.service_directory(config)
+    service_dir = Configuration.service_directory(config)
     user = config.ssh.user
 
     combine([
       ["sudo", "mkdir", "-p", service_dir],
       ["sudo", "chown", "#{user}:#{user}", service_dir],
-      make_directory(Xamal.Configuration.releases_directory(config)),
-      make_directory("#{Xamal.Configuration.env_directory(config)}/roles"),
-      make_directory(Xamal.Configuration.shared_directory(config)),
-      make_directory(Xamal.Configuration.run_directory())
+      make_directory(Configuration.releases_directory(config)),
+      make_directory("#{Configuration.env_directory(config)}/roles"),
+      make_directory(Configuration.shared_directory(config)),
+      make_directory(Configuration.run_directory())
     ])
   end
 
@@ -26,36 +28,36 @@ defmodule Xamal.Commands.Server do
   Ensure the run directory exists (for locks, audit logs).
   """
   def ensure_run_directory do
-    make_directory(Xamal.Configuration.run_directory())
+    make_directory(Configuration.run_directory())
   end
 
   @doc """
   Remove the entire service directory.
   """
   def remove_service_directory(config) do
-    remove_directory(Xamal.Configuration.service_directory(config))
+    remove_directory(Configuration.service_directory(config))
   end
 
   @doc """
   List the contents of the releases directory.
   """
   def list_releases(config) do
-    ["ls", "-1", Xamal.Configuration.releases_directory(config)]
+    ["ls", "-1", Configuration.releases_directory(config)]
   end
 
   @doc """
   Check the current symlink target.
   """
   def current_version(config) do
-    ["readlink", "-f", Xamal.Configuration.current_link(config)]
+    ["readlink", "-f", Configuration.current_link(config)]
   end
 
   @doc """
   Create/update the current symlink to point to a release version.
   """
   def link_current(config, version) do
-    release_path = "#{Xamal.Configuration.releases_directory(config)}/#{version}"
-    current = Xamal.Configuration.current_link(config)
+    release_path = "#{Configuration.releases_directory(config)}/#{version}"
+    current = Configuration.current_link(config)
 
     ["ln", "-sfn", release_path, current]
   end

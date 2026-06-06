@@ -6,6 +6,7 @@ defmodule Xamal.SSH do
   Uses Erlang's `:ssh` stdlib under the hood via ConnectionPool.
   """
 
+  alias Xamal.Configuration.{Boot, Ssh}
   alias Xamal.SSH.{ConnectionPool, Host, Runner}
 
   @doc """
@@ -20,26 +21,26 @@ defmodule Xamal.SSH do
   Execute on hosts grouped by role, with configurable parallelism.
   """
   def on_roles(roles, config, fun, opts \\ []) do
-    parallel = Keyword.get(opts, :parallel, false)
-    boot = config.boot
-
-    if parallel and boot.parallel_roles do
-      # All roles in parallel
-      roles
-      |> Enum.flat_map(fn role ->
-        on(role.hosts, fn host -> fun.(host, role) end)
-      end)
+    if parallel_roles?(config.boot, opts) do
+      Enum.flat_map(roles, &run_role(&1, fun))
     else
-      # Roles sequentially, hosts within role in parallel (with limit)
-      Enum.flat_map(roles, fn role ->
-        limit = Xamal.Configuration.Boot.resolved_limit(boot, length(role.hosts))
-
-        Runner.run(role.hosts, fn host -> fun.(host, role) end,
-          concurrency: limit,
-          wait: boot.wait
-        )
-      end)
+      Enum.flat_map(roles, &run_role(&1, fun, config.boot))
     end
+  end
+
+  defp parallel_roles?(boot, opts) do
+    Keyword.get(opts, :parallel, false) and boot.parallel_roles
+  end
+
+  defp run_role(role, fun) do
+    on(role.hosts, fn host -> fun.(host, role) end)
+  end
+
+  defp run_role(role, fun, boot) do
+    Runner.run(role.hosts, fn host -> fun.(host, role) end,
+      concurrency: Boot.resolved_limit(boot, length(role.hosts)),
+      wait: boot.wait
+    )
   end
 
   @doc """
@@ -47,7 +48,7 @@ defmodule Xamal.SSH do
   Returns {:ok, output} or {:error, reason}.
   """
   def execute(host, command, opts \\ []) when is_binary(command) do
-    ssh_config = Keyword.get(opts, :ssh_config, %Xamal.Configuration.Ssh{})
+    ssh_config = Keyword.get(opts, :ssh_config, %Ssh{})
     timeout = Keyword.get(opts, :timeout, 30_000)
     hostname = Host.hostname(host)
     port = Host.port(host, ssh_config)
@@ -58,7 +59,7 @@ defmodule Xamal.SSH do
           hostname,
           port,
           ssh_config.user,
-          Xamal.Configuration.Ssh.connect_options(ssh_config)
+          Ssh.connect_options(ssh_config)
         )
       catch
         :exit, {:timeout, _} ->
@@ -86,7 +87,7 @@ defmodule Xamal.SSH do
   in-VM SFTP channel so those flows keep working.
   """
   def upload(host, local_path, remote_path, opts \\ []) do
-    ssh_config = Keyword.get(opts, :ssh_config, %Xamal.Configuration.Ssh{})
+    ssh_config = Keyword.get(opts, :ssh_config, %Ssh{})
     hostname = Host.hostname(host)
     port = Host.port(host, ssh_config)
 
@@ -106,7 +107,7 @@ defmodule Xamal.SSH do
           hostname,
           port,
           ssh_config.user,
-          Xamal.Configuration.Ssh.connect_options(ssh_config)
+          Ssh.connect_options(ssh_config)
         )
       catch
         :exit, {:timeout, _} ->
@@ -166,7 +167,7 @@ defmodule Xamal.SSH do
   Connects local stdin/stdout to the remote session.
   """
   def interactive_exec(host, command, opts \\ []) do
-    ssh_config = Keyword.get(opts, :ssh_config, %Xamal.Configuration.Ssh{})
+    ssh_config = Keyword.get(opts, :ssh_config, %Ssh{})
     hostname = Host.hostname(host)
     port = Host.port(host, ssh_config)
 
@@ -175,7 +176,7 @@ defmodule Xamal.SSH do
              hostname,
              port,
              ssh_config.user,
-             Xamal.Configuration.Ssh.connect_options(ssh_config)
+             Ssh.connect_options(ssh_config)
            ) do
       try do
         do_interactive_exec(conn, command)
@@ -190,7 +191,7 @@ defmodule Xamal.SSH do
   Runs until the remote command exits or the process is interrupted.
   """
   def streaming_exec(host, command, opts \\ []) do
-    ssh_config = Keyword.get(opts, :ssh_config, %Xamal.Configuration.Ssh{})
+    ssh_config = Keyword.get(opts, :ssh_config, %Ssh{})
     timeout = Keyword.get(opts, :timeout, :infinity)
     hostname = Host.hostname(host)
     port = Host.port(host, ssh_config)
@@ -200,7 +201,7 @@ defmodule Xamal.SSH do
              hostname,
              port,
              ssh_config.user,
-             Xamal.Configuration.Ssh.connect_options(ssh_config)
+             Ssh.connect_options(ssh_config)
            ) do
       try do
         do_streaming_exec(conn, command, timeout)
@@ -221,15 +222,14 @@ defmodule Xamal.SSH do
     # Request PTY
     pty_opts = [{:term, "xterm-256color"}, {:width, cols}, {:height, rows}]
     pty_result = :ssh_connection.ptty_alloc(conn, channel, pty_opts, 30_000)
-    true = pty_result in [:ok, :success]
+    true = pty_result == :success
 
     # Execute command
     exec_result = :ssh_connection.exec(conn, channel, String.to_charlist(command), 30_000)
-    true = exec_result in [:ok, :success]
+    true = exec_result == :success
 
-    # Save terminal state and set raw mode
-    old_stty = :os.cmd(~c"stty -F /dev/tty -g") |> to_string() |> String.trim()
-    :os.cmd(~c"stty -F /dev/tty raw -echo")
+    old_stty = stty(["-F", "/dev/tty", "-g"]) |> String.trim()
+    stty(["-F", "/dev/tty", "raw", "-echo"])
 
     # Steal fd 0 for raw keystroke reading. Uses fd 2 (stderr) as the port output fd
     # so we don't steal fd 1 from prim_tty — IO.write still works for channel output.
@@ -244,7 +244,14 @@ defmodule Xamal.SSH do
         _, _ -> :ok
       end
 
-      :os.cmd(String.to_charlist("stty -F /dev/tty #{old_stty}"))
+      stty(["-F", "/dev/tty", old_stty])
+    end
+  end
+
+  defp stty(args) do
+    case System.cmd("stty", args, stderr_to_stdout: true) do
+      {output, 0} -> output
+      {output, _code} -> raise "stty failed: #{output}"
     end
   end
 
@@ -277,7 +284,7 @@ defmodule Xamal.SSH do
     {:ok, channel} = :ssh_connection.session_channel(conn, 30_000)
 
     exec_result = :ssh_connection.exec(conn, channel, String.to_charlist(command), 30_000)
-    true = exec_result in [:ok, :success]
+    true = exec_result == :success
 
     streaming_loop(conn, channel, timeout)
   end
@@ -324,7 +331,7 @@ defmodule Xamal.SSH do
 
     # OTP 27+ returns :success instead of :ok
     result = :ssh_connection.exec(conn, channel, String.to_charlist(command), timeout)
-    true = result in [:ok, :success]
+    true = result == :success
 
     receive_output(conn, channel, "", timeout)
   end
