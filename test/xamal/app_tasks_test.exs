@@ -3,6 +3,12 @@ defmodule Xamal.AppTasksTest do
 
   alias Xamal.AppTasks
 
+  setup_all do
+    # function_exported?/3 needs the module loaded; ensure it regardless of order.
+    Code.ensure_loaded!(AppTasks)
+    :ok
+  end
+
   describe "parse_exec/1" do
     test "takes a leading -i as interactive and the rest as the command" do
       assert {[interactive: true], "iex"} = AppTasks.parse_exec(["-i", "iex"])
@@ -30,13 +36,13 @@ defmodule Xamal.AppTasksTest do
     test "the redundant xamal.shell task no longer exists" do
       # xamal.shell mirrored Kamal's container shell, which has no analogue for
       # native host releases; it only duplicated xamal.iex. Guard against it
-      # silently returning.
-      refute Code.ensure_loaded?(Mix.Tasks.Xamal.Shell)
+      # silently returning. function_exported?/3 reflects the recompiled
+      # AppTasks module, so it is independent of the working directory and of any
+      # stale .beam left in a reused build directory.
       refute function_exported?(AppTasks, :shell, 3)
     end
 
     test "xamal.iex is still present" do
-      assert Code.ensure_loaded?(Mix.Tasks.Xamal.Iex)
       assert function_exported?(AppTasks, :iex, 3)
     end
   end
