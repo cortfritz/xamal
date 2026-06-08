@@ -146,18 +146,10 @@ defmodule Xamal.AppTasks do
   end
 
   @doc """
-  Opens an interactive remote shell (IEx) connected to the running release.
-
-  Convenience wrapper for `mix xamal.app.exec -i`.
-  """
-  def shell(_args, opts, context) do
-    exec(["-i"], opts, context)
-  end
-
-  @doc """
   Opens an interactive remote IEx session connected to the running release.
 
-  Alias of `shell/3`; both connect via the release's `remote` command.
+  Convenience wrapper for `mix xamal.app.exec -i`, connecting via the release's
+  `remote` command.
   """
   def iex(_args, opts, context) do
     exec(["-i"], opts, context)
@@ -236,12 +228,17 @@ defmodule Xamal.AppTasks do
 
   defp maybe_wait_before_batch(_index, _wait), do: :ok
 
-  defp parse_exec(args) do
-    {exec_opts, cmd_args, _invalid} =
-      OptionParser.parse(args, switches: [interactive: :boolean], aliases: [i: :interactive])
+  @doc """
+  Splits exec args into `{exec_opts, command}`.
 
-    {exec_opts, Enum.join(cmd_args, " ")}
-  end
+  `-i`/`--interactive` may lead; everything after it is the command verbatim, so
+  a command that itself contains dashed tokens keeps them intact. Public for
+  testing; not part of the API.
+  """
+  @spec parse_exec(list(String.t())) :: {keyword(), String.t()}
+  def parse_exec(["-i" | rest]), do: {[interactive: true], Enum.join(rest, " ")}
+  def parse_exec(["--interactive" | rest]), do: {[interactive: true], Enum.join(rest, " ")}
+  def parse_exec(args), do: {[], Enum.join(args, " ")}
 
   defp interactive_exec(host, config, command) do
     active_port = read_active_port(host, config)
