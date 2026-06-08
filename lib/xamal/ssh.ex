@@ -91,14 +91,23 @@ defmodule Xamal.SSH do
     hostname = Host.hostname(host)
     port = Host.port(host, ssh_config)
 
+    # Use scp only when both an on-disk key and the scp binary are available.
+    # A missing scp binary falls back to SFTP instead of raising :enoent, so
+    # the upload still succeeds (just slower) and the contract is preserved.
     case key_file(ssh_config) do
       {:ok, key_path} ->
-        upload_via_scp(key_path, ssh_config.user, hostname, port, local_path, remote_path)
+        if scp_available?() do
+          upload_via_scp(key_path, ssh_config.user, hostname, port, local_path, remote_path)
+        else
+          upload_via_sftp_pooled(ssh_config, hostname, port, local_path, remote_path)
+        end
 
       :none ->
         upload_via_sftp_pooled(ssh_config, hostname, port, local_path, remote_path)
     end
   end
+
+  defp scp_available?, do: System.find_executable("scp") != nil
 
   defp upload_via_sftp_pooled(ssh_config, hostname, port, local_path, remote_path) do
     checkout_result =
@@ -123,18 +132,31 @@ defmodule Xamal.SSH do
     end
   end
 
-  # First existing on-disk key from ssh.keys, or :none (key_data/agent flows).
-  defp key_file(%{keys: keys}) when is_list(keys) do
+  @doc """
+  Resolve the first existing on-disk private key from `ssh.keys`.
+
+  Returns `{:ok, expanded_path}` when a configured key exists on disk, or
+  `:none` for `key_data`/agent flows (no usable file). This selection is what
+  decides whether `upload/4` uses scp or falls back to the in-VM SFTP channel.
+  """
+  def key_file(%{keys: keys}) when is_list(keys) do
     Enum.find_value(keys, :none, fn k ->
       expanded = Path.expand(k)
       if File.exists?(expanded), do: {:ok, expanded}, else: false
     end)
   end
 
-  defp key_file(_), do: :none
+  def key_file(_), do: :none
 
-  defp upload_via_scp(key_path, user, hostname, port, local_path, remote_path) do
-    args = [
+  @doc """
+  Build the argument list passed to the `scp` binary.
+
+  Uses an arg list (not a shell string) to avoid the shell, and carries the
+  non-interactive deploy flags `BatchMode=yes` and
+  `StrictHostKeyChecking=accept-new`.
+  """
+  def scp_args(key_path, user, hostname, port, local_path, remote_path) do
+    [
       "-i",
       key_path,
       "-P",
@@ -146,6 +168,10 @@ defmodule Xamal.SSH do
       local_path,
       "#{user}@#{hostname}:#{remote_path}"
     ]
+  end
+
+  defp upload_via_scp(key_path, user, hostname, port, local_path, remote_path) do
+    args = scp_args(key_path, user, hostname, port, local_path, remote_path)
 
     case System.cmd("scp", args, stderr_to_stdout: true) do
       {_, 0} -> {:ok, remote_path}
